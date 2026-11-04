@@ -1,7 +1,25 @@
-.gradle/
+# Build
 build/
-out/
+.gradle/
 bin/
+out/
+
+# IDEs
 .idea/
+.vscode/
+*.iml
+
+# SQLite (mantiene data/.gitkeep)
 data/*.db
 data/*.db-*
+data/*.sqlite*
+
+# Logs
+*.log
+
+# Herramienta modernize (Copilot)
+.github/modernize/
+
+# OS
+.DS_Store
+Thumbs.db
