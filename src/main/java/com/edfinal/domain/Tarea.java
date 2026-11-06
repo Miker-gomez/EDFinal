@@ -1,13 +1,13 @@
 package com.edfinal.domain;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record Tarea(
         String id,
         String materia,
         String titulo,
         int prioridad,
-        LocalDate fechaLimite,
+        LocalDateTime fechaLimite,
         EstadoTarea estado
 ) implements Comparable<Tarea> {
 

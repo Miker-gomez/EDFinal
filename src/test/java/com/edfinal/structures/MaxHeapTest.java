@@ -4,7 +4,7 @@ import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Tarea;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -21,9 +21,9 @@ class MaxHeapTest {
         }
     }
 
-    private static Tarea tarea(String id, int prioridad, String fecha) {
-        return new Tarea(id, "Materia", "T-" + id, prioridad, LocalDate.parse(fecha), EstadoTarea.PENDIENTE);
-    }
+private static Tarea tarea(String id, int prioridad, String fecha) {
+    return new Tarea(id, "Materia", "T-" + id, prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
+}
 
     // ---------- Casos límite ----------
 
@@ -156,9 +156,9 @@ class MaxHeapTest {
     @Test
     void tareas_mayorPrioridadGana_yEnEmpateLaFechaMasCercana() {
         MaxHeap<Tarea> heap = new MaxHeap<>(Tarea::id);
-        heap.insert(tarea("a", 3, "2026-12-01"));
-        heap.insert(tarea("b", 5, "2026-12-20"));
-        heap.insert(tarea("c", 5, "2026-12-10")); // empate con b, fecha más cercana
+        heap.insert(tarea("a", 3, "2026-12-01T09:00"));
+        heap.insert(tarea("b", 5, "2026-12-20T09:00"));
+        heap.insert(tarea("c", 5, "2026-12-10T09:00")); // empate con b, fecha más cercana
 
         assertThat(heap.extractMax().orElseThrow().id()).isEqualTo("c");
         assertThat(heap.extractMax().orElseThrow().id()).isEqualTo("b");
