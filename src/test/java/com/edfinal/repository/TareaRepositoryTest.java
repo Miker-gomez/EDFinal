@@ -14,8 +14,6 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
