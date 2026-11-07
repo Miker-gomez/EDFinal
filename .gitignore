@@ -9,10 +9,8 @@ out/
 .vscode/
 *.iml
 
-# SQLite (mantiene data/.gitkeep)
-data/*.db
-data/*.db-*
-data/*.sqlite*
+# Entorno local (credenciales); .env.example sí se versiona
+.env
 
 # Logs
 *.log
