@@ -20,5 +20,20 @@ services:
       timeout: 5s
       retries: 10
 
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"   # puerto interno de la red de Compose, NO el DB_PORT del host
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
