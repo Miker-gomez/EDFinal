@@ -38,6 +38,7 @@ test {
     useJUnitPlatform()
     // Docker 29+ exige API >= 1.44; Testcontainers 1.x negocia una versión vieja.
     systemProperty 'api.version', '1.44'
+    jvmArgs '-Duser.timezone=America/Bogota'
     testLogging {
         events "failed"
         exceptionFormat = "full"
