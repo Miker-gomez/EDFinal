@@ -8,6 +8,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+    /**
+     *  MateriaRepository con CRUD.
+     */
 @Repository
 public class MateriaRepository {
 
