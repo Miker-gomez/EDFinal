@@ -22,7 +22,7 @@ class MaxHeapTest {
     }
 
 private static Tarea tarea(String id, int prioridad, String fecha) {
-    return new Tarea(id, "Materia", "T-" + id, prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
+    return new Tarea(id, "T-" + id, 1, "Materia", prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
 }
 
     // ---------- Casos límite ----------

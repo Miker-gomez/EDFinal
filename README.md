@@ -1,49 +1,86 @@
-# EDFinal
+# Student Hub – Dashboard de Gestión Académica
 
-Base arquitectónica preparada para Java 21, Spring Boot, SQLite y una interfaz
-estática HTML/JavaScript con Bootstrap. Este repositorio contiene únicamente el
-esqueleto y la configuración: todavía no implementa funcionalidades, endpoints,
-esquema de base de datos ni interfaz.
+Dashboard web para que estudiantes universitarios con alta carga académica registren sus entregas, talleres y exámenes y vean siempre cuál es la tarea más urgente. Proyecto de Estructuras de Datos y Algoritmos.
 
-## Compatibilidad fijada
+Integrantes: Juan Vélez, Miker Gómez y Edward Molina.
 
-- Java 21 mediante Gradle toolchain y `--release 21`.
-- Spring Boot 3.5.6 y dependencias gestionadas por su BOM.
-- Spring MVC para futuros controladores REST, Bean Validation para validar
-  entradas y Spring JDBC para la capa de repositorios.
-- SQLite JDBC 3.50.3.0; la URL local configurada apunta a `data/edfinal.db`.
-- Bootstrap 5.3.8 como WebJar, disponible en el classpath sin Node.js ni CDN.
-- Cliente estático en `src/main/resources/static`; no se requiere Node.js.
+## Stack
 
-Se requiere tener disponible un JDK 21 para compilar con Gradle. El wrapper
-permite usar la versión de Gradle del proyecto sin instalar Gradle globalmente.
+- Java 21 (Gradle toolchain y `--release 21`) con Spring Boot 3.5.6 y Spring JDBC (sin JPA/Hibernate).
+- PostgreSQL 16 con rutinas PL/pgSQL (procedimientos almacenados y triggers).
+- Frontend estático: HTML5, JavaScript (Fetch API) y Bootstrap 5.3.8 como WebJar; sin Node.js.
+- Docker y Docker Compose para la base de datos y la aplicación.
+- Pruebas: JUnit 5, AssertJ y Testcontainers (PostgreSQL 16).
 
-## Estructura
+## Arquitectura
+
+```text
+cliente estático → controller → service → estructuras en memoria + repository → PostgreSQL
+```
+
+PostgreSQL es la fuente de verdad. Las tareas activas (PENDIENTE y VENCIDA) también viven en memoria en tres estructuras:
+
+- **Max-Heap propio** (`MaxHeap`): tarea más urgente en O(1); insertar y remover en O(log n).
+- **HashMap**: búsqueda por ID en O(1).
+- **Pila (`ArrayDeque`)**: deshacer la última acción de completar o eliminar.
+
+## Estructura del repositorio
 
 ```text
 src/main/java/com/edfinal/
-  config/       configuración transversal
-  controller/   controladores REST y capa HTTP
-  domain/       modelos y reglas de negocio
-  repository/   persistencia SQLite mediante JDBC
-  service/      casos de uso y lógica de negocio
-  EdFinalApplication.java
+  config/       configuración de beans
+  controller/   controladores REST
+  domain/       entidades y objetos de dominio
+  repository/   acceso a PostgreSQL con JdbcTemplate
+  service/      reglas de negocio y sincronización memoria–BD
+  structures/   MaxHeap (implementación propia)
 src/main/resources/
   application.properties
   static/       HTML, JavaScript y estilos del cliente
-data/           ubicación local del archivo SQLite (no versionado)
+src/test/       pruebas unitarias e de integración
+db/init/        01_schema.sql, 02_seed.sql, 03_routines.sql
+Dockerfile
+docker-compose.yml
+.env.example
 ```
 
-La dirección prevista del flujo es `cliente estático → controller → service →
-repository → SQLite`. Las estructuras de datos en memoria y las reglas de
-negocio se incorporarán en `domain`/`service`; esta base no presupone su diseño.
+## Cómo ejecutar
 
-## Verificación de configuración
+1. Crea el archivo de entorno y ajusta la contraseña:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+   `.env` no se versiona. Guárdalo en UTF-8 sin BOM y sin comandos dentro.
+
+2. Levanta todo con Docker Compose:
+
+   ```powershell
+   docker compose up --build
+   ```
+
+   El dashboard queda en <http://localhost:8080>. La primera construcción tarda varios minutos (imágenes base y dependencias de Gradle); las siguientes usan caché. Tras `up`, espera unos segundos antes de abrirlo.
+
+Los scripts de `db/init/` solo se ejecutan cuando el volumen está vacío. Para reaplicarlos tras cambiar el esquema:
 
 ```powershell
-.\gradlew.bat --version
-.\gradlew.bat compileJava
+docker compose down -v
 ```
 
-La configuración solicita Java 21 explícitamente: un JDK distinto no debe
-considerarse evidencia de compatibilidad con Java 21.
+Un `docker compose down` sin `-v` conserva los datos.
+
+### Desarrollo desde el IDE
+
+```powershell
+docker compose up -d --wait db
+Get-Content .env | Where-Object { $_ -match '^\s*[^#\s]\S*=' } | ForEach-Object {
+  $k, $v = $_ -split '=', 2
+  Set-Item "env:$($k.Trim())" $v.Trim()
+}
+.\gradlew.bat bootRun
+```
+
+Las variables viven solo en esa sesión de PowerShell.
+
+##

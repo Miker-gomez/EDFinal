@@ -27,14 +27,19 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.webjars:bootstrap:5.3.8'
 
-    runtimeOnly 'org.xerial:sqlite-jdbc:3.50.3.0'
+    runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
 }
 
 test {
     useJUnitPlatform()
-        testLogging {
+    // Docker 29+ exige API >= 1.44; Testcontainers 1.x negocia una versión vieja.
+    systemProperty 'api.version', '1.44'
+    jvmArgs '-Duser.timezone=America/Bogota'
+    testLogging {
         events "failed"
         exceptionFormat = "full"
         showCauses = true
