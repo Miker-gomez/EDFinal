@@ -22,7 +22,7 @@ PostgreSQL es la fuente de verdad. Las tareas activas (PENDIENTE y VENCIDA) tamb
 
 - **Max-Heap propio** (`MaxHeap`): tarea más urgente en O(1); insertar y remover en O(log n).
 - **HashMap**: búsqueda por ID en O(1).
-- **Pila (`ArrayDeque`)**: deshacer la última acción de completar o eliminar.
+- **Pila (`ArrayDeque`)**: deshacer la última acción de completar o eliminar en O(1).
 
 ## Estructura del repositorio
 
@@ -83,4 +83,20 @@ Get-Content .env | Where-Object { $_ -match '^\s*[^#\s]\S*=' } | ForEach-Object 
 
 Las variables viven solo en esa sesión de PowerShell.
 
-##
+## Estado del Proyecto y Fases de Desarrollo
+
+El avance del proyecto se gestiona de forma modular por fases:
+
+- **Fase 0 – Setup & Arquitectura (Completada):** Estructura base Java 21, Spring Boot 3.5.6, Gradle wrapper y Bootstrap WebJar.
+- **Fase 1 – MaxHeap Propio y Modelo de Dominio (Completada):** Montículo de máximos propio con indexación en HashMap para eliminación y actualización en O(log n), modelo `Tarea` comparable por prioridad y proximidad temporal (`MaxHeapTest`).
+- **Fase 2 – Persistencia y Migración PostgreSQL (Completada):** Esquema relacional en PostgreSQL 16 con Docker Compose, triggers de validación/auditoría, rutinas PL/pgSQL (`sp_marcar_vencidas`, `sp_estadisticas_entrega`) y repositorios JDBC (`TareaRepository`, `MateriaRepository`, `ProfesorRepository`).
+- **Fase 3 – Capa de Servicio y Sincronización en Memoria (Completada en rama `feature/fase-3-servicio-memoria`):**
+  - Implementación de `TareaService` con orquestación en memoria de las 3 estructuras:
+    - `MaxHeap<Tarea>`: tarea más urgente en O(1).
+    - `HashMap<String, Tarea>`: búsqueda por ID en O(1).
+    - `Deque<AccionDeshacer>` (`ArrayDeque`): pila LIFO para deshacer acciones de completar o modificar en O(1).
+  - Control de concurrencia mediante `ReentrantReadWriteLock`.
+  - Servicios de catálogo `MateriaService` y `ProfesorService`.
+  - Suite de pruebas unitarias en `TareaServiceTest` y `CatalogoServicesTest`.
+- **Fase 4 – API REST y Controladores (Siguiente):** Endpoints REST (`TareaController`, `MateriaController`, `ProfesorController`), DTOs con Bean Validation y `GlobalExceptionHandler`.
+- **Fase 5 – Frontend Dashboard:** Interfaz interactiva HTML5/Bootstrap con consumo de API mediante Fetch API.
