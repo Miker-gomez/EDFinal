@@ -1,190 +1,167 @@
 package com.edfinal.structures;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Function;
 
-/**
- * Max-Heap sobre arreglo dinámico (implementación propia, sin dependencias de Spring).
- * Padre de i = (i-1)/2; hijos = 2i+1 y 2i+2.
- *
- * Con keyExtractor se mantiene un mapa clave -> índice, lo que permite
- * remove(key) en O(log n) en vez de O(n).
- *
- * Complejidad: insert O(log n), extractMax O(log n), peekMax O(1), remove(key) O(log n).
- * No es thread-safe: la sincronización vive en TareaService.
- */
-public class MaxHeap<T extends Comparable<T>> {
+// Max-Heap propio sobre ArrayList. Padre de i = (i-1)/2, hijos = 2i+1 y 2i+2
+// El mapa id -> posicion permite remover por id en O(log n)
+// insert, extractMax y remove son O(log n); peekMax es O(1)
+// No es thread-safe: la sincronizacion vive en TareaService
+public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
-    private static final int CAPACIDAD_INICIAL = 16;
-
-    private Object[] data = new Object[CAPACIDAD_INICIAL];
-    private int size = 0;
-
-    private final Function<? super T, ?> keyExtractor; // null si no hay indexado
-    private final Map<Object, Integer> index;          // null si no hay indexado
-
-    public MaxHeap() {
-        this.keyExtractor = null;
-        this.index = null;
-    }
-
-    public MaxHeap(Function<? super T, ?> keyExtractor) {
-        this.keyExtractor = Objects.requireNonNull(keyExtractor);
-        this.index = new HashMap<>();
-    }
-
-    // ---------- API pública ----------
+    // Elementos del montículo
+    private List<T> data = new ArrayList<>();
+    // Posicion de cada id dentro del montículo
+    private Map<String, Integer> index = new HashMap<>();
 
     public void insert(T elem) {
+
         Objects.requireNonNull(elem, "elem no puede ser null");
-        if (index != null && index.containsKey(keyExtractor.apply(elem))) {
-            throw new IllegalArgumentException("Clave duplicada: " + keyExtractor.apply(elem));
+        if ( index.containsKey(elem.getId()) ){
+            throw new IllegalArgumentException("Clave duplicada: " + elem.getId());
         }
-        if (size == data.length) {
-            data = Arrays.copyOf(data, data.length * 2); // redimensionamiento automático
-        }
-        data[size] = elem;
-        track(elem, size);
-        size++;
-        heapifyUp(size - 1);
+
+        // Se agrega al final y se sube hasta su lugar
+        data.add(elem);
+        index.put(elem.getId(), data.size() - 1);
+        heapifyUp(data.size() - 1);
+
     }
 
-    public Optional<T> peekMax() {
-        return isEmpty() ? Optional.empty() : Optional.of(at(0));
+    // Devuelve null si el montículo está vacío
+    public T peekMax() {
+
+        if ( isEmpty() ){
+            return null;
+        }
+        return data.get(0);
+
     }
 
-    public Optional<T> extractMax() {
-        if (isEmpty()) {
-            return Optional.empty();
+    // Devuelve null si el montículo está vacío
+    public T extractMax() {
+
+        if ( isEmpty() ){
+            return null;
         }
-        T max = at(0);
+        T max = data.get(0);
         removeAt(0);
-        return Optional.of(max);
+        return max;
+
     }
 
-    /** Remueve por clave en O(log n). Vacío si la clave no existe. */
-    public Optional<T> remove(Object key) {
-        if (index == null) {
-            throw new UnsupportedOperationException("MaxHeap creado sin keyExtractor");
+    // Remueve por id. Devuelve null si el id no existe
+    public T remove(String id) {
+
+        Integer i = index.get(id);
+        if ( i == null ){
+            return null;
         }
-        Integer i = index.get(key);
-        if (i == null) {
-            return Optional.empty();
-        }
-        T removed = at(i);
+        T removed = data.get(i);
         removeAt(i);
-        return Optional.of(removed);
+        return removed;
+
     }
 
-    public boolean contains(Object key) {
-        if (index == null) {
-            throw new UnsupportedOperationException("MaxHeap creado sin keyExtractor");
-        }
-        return index.containsKey(key);
+    public boolean contains(String id) {
+        return index.containsKey(id);
     }
 
     public int size() {
-        return size;
+        return data.size();
     }
 
     public boolean isEmpty() {
-        return size == 0;
+        return data.isEmpty();
     }
 
-    // ---------- Núcleo ----------
+    ////////////////////////////////////////////////////////////////
 
     private void removeAt(int i) {
-        T removed = at(i);
-        int last = --size;
-        untrack(removed);
-        if (i != last) {
-            T moved = at(last);
-            data[i] = moved;
-            track(moved, i);
-            data[last] = null;
+
+        T removed = data.get(i);
+        int last = data.size() - 1;
+        index.remove(removed.getId());
+
+        if ( i != last ){
+            // El último ocupa el hueco y se acomoda hacia arriba o hacia abajo
+            T moved = data.get(last);
+            data.set(i, moved);
+            index.put(moved.getId(), i);
+            data.remove(last);
             heapifyDown(i);
-            heapifyUp(i); // el elemento movido pudo ser mayor que el padre de i
+            heapifyUp(i);
         } else {
-            data[last] = null;
+            data.remove(last);
         }
+
     }
 
     private void heapifyUp(int i) {
-        while (i > 0) {
+
+        while ( i > 0 ){
             int parent = (i - 1) / 2;
-            if (at(i).compareTo(at(parent)) <= 0) {
+            if ( data.get(i).compareTo(data.get(parent)) <= 0 ){
                 break;
             }
             swap(i, parent);
             i = parent;
         }
+
     }
 
     private void heapifyDown(int i) {
-        while (true) {
+
+        while ( true ){
             int left = 2 * i + 1;
             int right = left + 1;
             int largest = i;
-            if (left < size && at(left).compareTo(at(largest)) > 0) {
+            if ( left < data.size() && data.get(left).compareTo(data.get(largest)) > 0 ){
                 largest = left;
             }
-            if (right < size && at(right).compareTo(at(largest)) > 0) {
+            if ( right < data.size() && data.get(right).compareTo(data.get(largest)) > 0 ){
                 largest = right;
             }
-            if (largest == i) {
+            if ( largest == i ){
                 break;
             }
             swap(i, largest);
             i = largest;
         }
+
     }
 
     private void swap(int i, int j) {
-        Object tmp = data[i];
-        data[i] = data[j];
-        data[j] = tmp;
-        track(at(i), i);
-        track(at(j), j);
+
+        T tmp = data.get(i);
+        data.set(i, data.get(j));
+        data.set(j, tmp);
+        index.put(data.get(i).getId(), i);
+        index.put(data.get(j).getId(), j);
+
     }
 
-    @SuppressWarnings("unchecked")
-    private T at(int i) {
-        return (T) data[i];
-    }
-
-    private void track(T elem, int pos) {
-        if (index != null) {
-            index.put(keyExtractor.apply(elem), pos);
-        }
-    }
-
-    private void untrack(T elem) {
-        if (index != null) {
-            index.remove(keyExtractor.apply(elem));
-        }
-    }
-
-    /** Solo para pruebas: verifica la propiedad de montículo y la coherencia del índice. */
+    // Solo para pruebas: verifica la propiedad de montículo y la coherencia del mapa
     boolean isValidHeap() {
-        for (int i = 1; i < size; i++) {
-            if (at(i).compareTo(at((i - 1) / 2)) > 0) {
+
+        for ( int i = 1; i < data.size(); i++ ){
+            if ( data.get(i).compareTo(data.get((i - 1) / 2)) > 0 ){
                 return false;
             }
         }
-        if (index != null) {
-            if (index.size() != size) {
+        if ( index.size() != data.size() ){
+            return false;
+        }
+        for ( int i = 0; i < data.size(); i++ ){
+            if ( !Integer.valueOf(i).equals(index.get(data.get(i).getId())) ){
                 return false;
-            }
-            for (int i = 0; i < size; i++) {
-                if (!Integer.valueOf(i).equals(index.get(keyExtractor.apply(at(i))))) {
-                    return false;
-                }
             }
         }
         return true;
+
     }
+
 }

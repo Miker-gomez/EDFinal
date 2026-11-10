@@ -5,6 +5,7 @@ import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Tarea;
 import com.edfinal.repository.TareaRepository;
 import com.edfinal.support.PostgresTestBase;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,10 +13,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
+import static com.edfinal.support.Excepciones.capturar;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Procedimientos almacenados y triggers, ejercidos como los usará la aplicación (vía TareaRepository). */
+// Procedimientos almacenados y triggers, ejercidos como los usará la aplicación (vía TareaRepository).
 class RutinasYTriggersTest extends PostgresTestBase {
 
     private static final int ID_PENDIENTE = 1;
@@ -40,12 +42,10 @@ class RutinasYTriggersTest extends PostgresTestBase {
         return repo.buscarPorId(id).orElseThrow().estado();
     }
 
-    /** Pares [estado anterior, estado nuevo] de la auditoría de una tarea, en orden de registro. */
+    // Pares [estado anterior, estado nuevo] de la auditoría de una tarea, en orden de registro.
     private List<List<Integer>> transiciones(String tareaId) {
-        return jdbc.query("""
-                SELECT estado_anterior_id, estado_nuevo_id
-                  FROM auditoria_tareas WHERE tarea_id = ?::uuid ORDER BY id
-                """, (rs, i) -> List.of(rs.getInt(1), rs.getInt(2)), tareaId);
+        return jdbc.query("SELECT estado_anterior_id, estado_nuevo_id " +
+                    "FROM auditoria_tareas WHERE tarea_id = ?::uuid ORDER BY id", (rs, i) -> List.of(rs.getInt(1), rs.getInt(2)), tareaId);
     }
 
     // ---------- sp_marcar_vencidas (CALL con INOUT desde JdbcTemplate) ----------
@@ -65,20 +65,20 @@ class RutinasYTriggersTest extends PostgresTestBase {
 
         int marcadas = repo.marcarVencidas();
 
-        assertThat(marcadas).isEqualTo(2);
-        assertThat(estadoDe(expirada1.id())).isEqualTo(EstadoTarea.VENCIDA);
-        assertThat(estadoDe(expirada2.id())).isEqualTo(EstadoTarea.VENCIDA);
-        assertThat(estadoDe(vigente.id())).isEqualTo(EstadoTarea.PENDIENTE);
-        assertThat(estadoDe(completada.id())).isEqualTo(EstadoTarea.COMPLETADA);
-        assertThat(estadoDe(yaVencida.id())).isEqualTo(EstadoTarea.VENCIDA);
+        assertEquals(2, marcadas);
+        assertEquals(EstadoTarea.VENCIDA, estadoDe(expirada1.id()));
+        assertEquals(EstadoTarea.VENCIDA, estadoDe(expirada2.id()));
+        assertEquals(EstadoTarea.PENDIENTE, estadoDe(vigente.id()));
+        assertEquals(EstadoTarea.COMPLETADA, estadoDe(completada.id()));
+        assertEquals(EstadoTarea.VENCIDA, estadoDe(yaVencida.id()));
 
         // el trigger de auditoría registró exactamente las dos transiciones del procedimiento
-        assertThat(transiciones(expirada1.id())).containsExactly(List.of(ID_PENDIENTE, ID_VENCIDA));
-        assertThat(transiciones(expirada2.id())).containsExactly(List.of(ID_PENDIENTE, ID_VENCIDA));
-        assertThat(transiciones(vigente.id())).isEmpty();
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_VENCIDA)), transiciones(expirada1.id()));
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_VENCIDA)), transiciones(expirada2.id()));
+        assertTrue(transiciones(vigente.id()).isEmpty());
         // las otras dos solo tienen la transición que se les aplicó a mano, no una segunda
-        assertThat(transiciones(completada.id())).containsExactly(List.of(ID_PENDIENTE, ID_COMPLETADA));
-        assertThat(transiciones(yaVencida.id())).containsExactly(List.of(ID_PENDIENTE, ID_VENCIDA));
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_COMPLETADA)), transiciones(completada.id()));
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_VENCIDA)), transiciones(yaVencida.id()));
     }
 
     @Test
@@ -86,13 +86,13 @@ class RutinasYTriggersTest extends PostgresTestBase {
         Tarea t = insertar(3, 5);
         forzarPlazoExpirado(t.id());
 
-        assertThat(repo.marcarVencidas()).isEqualTo(1);
-        assertThat(repo.marcarVencidas()).isZero();
+        assertEquals(1, repo.marcarVencidas());
+        assertEquals(0, repo.marcarVencidas());
     }
 
     @Test
     void marcarVencidas_sinTareas_devuelveCero() {
-        assertThat(repo.marcarVencidas()).isZero();
+        assertEquals(0, repo.marcarVencidas());
     }
 
     @Test
@@ -101,10 +101,10 @@ class RutinasYTriggersTest extends PostgresTestBase {
         Tarea corta = tarea(materiaId, "EDA", 3, LocalDateTime.now().plusSeconds(3));
         repo.insertar(corta);
 
-        assertThat(repo.marcarVencidas()).isZero();   // aún no expira
+        assertEquals(0, repo.marcarVencidas());   // aún no expira
         Thread.sleep(4_000);
-        assertThat(repo.marcarVencidas()).isEqualTo(1);
-        assertThat(estadoDe(corta.id())).isEqualTo(EstadoTarea.VENCIDA);
+        assertEquals(1, repo.marcarVencidas());
+        assertEquals(EstadoTarea.VENCIDA, estadoDe(corta.id()));
     }
 
     // ---------- sp_estadisticas_entrega ----------
@@ -119,23 +119,20 @@ class RutinasYTriggersTest extends PostgresTestBase {
         repo.actualizarEstado(completada.id(), EstadoTarea.COMPLETADA);
         repo.actualizarEstado(vencida.id(), EstadoTarea.VENCIDA);
 
-        assertThat(repo.estadisticasPorMateria()).containsExactly(
-                new EstadisticaMateria(vacia, "Algebra", 0, 0, 0, 0),
-                new EstadisticaMateria(materiaId, "EDA", 4, 2, 1, 1));
+        assertEquals(List.of(new EstadisticaMateria(vacia, "Algebra", 0, 0, 0, 0),
+                new EstadisticaMateria(materiaId, "EDA", 4, 2, 1, 1)), repo.estadisticasPorMateria());
     }
 
     // ---------- trg_tareas_validar_plazo ----------
 
     @Test
     void triggerPlazo_insertSqlConFechaPasada_rechaza_23514() {
-        Throwable ex = catchThrowable(() -> jdbc.update("""
-                INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite)
-                VALUES (gen_random_uuid(), 'Pasada', ?, 3, LOCALTIMESTAMP - interval '1 day')
-                """, materiaId));
+        Throwable ex = capturar(() -> jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite) " +
+                    "VALUES (gen_random_uuid(), 'Pasada', ?, 3, LOCALTIMESTAMP - interval '1 day')", materiaId));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23514");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM tareas", Integer.class)).isZero();
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23514", sqlState(ex));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM tareas", Integer.class));
     }
 
     @Test
@@ -144,7 +141,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
 
         forzarPlazoExpirado(t.id()); // UPDATE con fecha pasada: permitido
 
-        assertThat(repo.buscarPorId(t.id()).orElseThrow().fechaLimite()).isBefore(LocalDateTime.now());
+        assertTrue(repo.buscarPorId(t.id()).orElseThrow().fechaLimite().isBefore(LocalDateTime.now()));
     }
 
     // ---------- trg_tareas_auditar_estado ----------
@@ -155,11 +152,11 @@ class RutinasYTriggersTest extends PostgresTestBase {
 
         jdbc.update("UPDATE tareas SET estado_id = 2 WHERE id = ?::uuid", t.id());
 
-        assertThat(transiciones(t.id())).containsExactly(List.of(ID_PENDIENTE, ID_COMPLETADA));
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_COMPLETADA)), transiciones(t.id()));
         LocalDateTime fecha = jdbc.queryForObject(
                 "SELECT fecha_cambio FROM auditoria_tareas WHERE tarea_id = ?::uuid",
                 LocalDateTime.class, t.id());
-        assertThat(fecha).isAfter(LocalDateTime.now().minusMinutes(1));
+        assertTrue(fecha.isAfter(LocalDateTime.now().minusMinutes(1)));
     }
 
     @Test
@@ -170,10 +167,9 @@ class RutinasYTriggersTest extends PostgresTestBase {
         repo.actualizarEstado(t.id(), EstadoTarea.PENDIENTE);
         repo.actualizarEstado(t.id(), EstadoTarea.VENCIDA);
 
-        assertThat(transiciones(t.id())).containsExactly(
-                List.of(ID_PENDIENTE, ID_COMPLETADA),
+        assertEquals(List.of(List.of(ID_PENDIENTE, ID_COMPLETADA),
                 List.of(ID_COMPLETADA, ID_PENDIENTE),
-                List.of(ID_PENDIENTE, ID_VENCIDA));
+                List.of(ID_PENDIENTE, ID_VENCIDA)), transiciones(t.id()));
     }
 
     @Test
@@ -183,7 +179,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
         jdbc.update("UPDATE tareas SET estado_id = estado_id WHERE id = ?::uuid", t.id());
         jdbc.update("UPDATE tareas SET titulo = 'Otro' WHERE id = ?::uuid", t.id());
 
-        assertThat(transiciones(t.id())).isEmpty();
+        assertTrue(transiciones(t.id()).isEmpty());
     }
 
     @Test
@@ -191,10 +187,10 @@ class RutinasYTriggersTest extends PostgresTestBase {
         Tarea t = insertar(3, 5);
         repo.actualizarEstado(t.id(), EstadoTarea.COMPLETADA);
 
-        Throwable ex = catchThrowable(
+        Throwable ex = capturar(
                 () -> jdbc.update("DELETE FROM tareas WHERE id = ?::uuid", t.id()));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23503");
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
     }
 }

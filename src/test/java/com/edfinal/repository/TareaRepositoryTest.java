@@ -3,6 +3,7 @@ package com.edfinal.repository;
 import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Tarea;
 import com.edfinal.support.PostgresTestBase;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,10 +11,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 
+import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
+import static com.edfinal.support.Excepciones.capturar;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TareaRepositoryTest extends PostgresTestBase {
 
@@ -34,28 +38,28 @@ class TareaRepositoryTest extends PostgresTestBase {
 
         repo.insertar(t);
 
-        assertThat(repo.buscarPorId(t.id())).contains(t);
+        assertEquals(t, repo.buscarPorId(t.id()).get());
     }
 
     @Test
     void insertar_fechaPasada_triggerDePlazo_23514_yNoGuarda() {
         Tarea pasada = tarea(materiaId, "EDA", 3, enDias(-1));
 
-        Throwable ex = catchThrowable(() -> repo.insertar(pasada));
+        Throwable ex = capturar(() -> repo.insertar(pasada));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23514");
-        assertThat(repo.buscarPorId(pasada.id())).isEmpty();
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23514", sqlState(ex));
+        assertTrue(repo.buscarPorId(pasada.id()).isEmpty());
     }
 
     @Test
     void insertar_materiaInexistente_fk_23503() {
         Tarea t = tarea(99999, "X", 3, enDias(2));
 
-        Throwable ex = catchThrowable(() -> repo.insertar(t));
+        Throwable ex = capturar(() -> repo.insertar(t));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23503");
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
     }
 
     @ParameterizedTest
@@ -63,10 +67,10 @@ class TareaRepositoryTest extends PostgresTestBase {
     void insertar_prioridadFueraDeRango_fk_23503(int prioridad) {
         Tarea t = tarea(materiaId, "EDA", prioridad, enDias(2));
 
-        Throwable ex = catchThrowable(() -> repo.insertar(t));
+        Throwable ex = capturar(() -> repo.insertar(t));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23503");
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
     }
 
     @Test
@@ -74,10 +78,10 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea t = new Tarea(UUID.randomUUID().toString(), "   ", materiaId, "EDA",
                 3, enDias(2), EstadoTarea.PENDIENTE);
 
-        Throwable ex = catchThrowable(() -> repo.insertar(t));
+        Throwable ex = capturar(() -> repo.insertar(t));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23514");
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23514", sqlState(ex));
     }
 
     @Test
@@ -85,10 +89,10 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea t = new Tarea(UUID.randomUUID().toString(), null, materiaId, "EDA",
                 3, enDias(2), EstadoTarea.PENDIENTE);
 
-        Throwable ex = catchThrowable(() -> repo.insertar(t));
+        Throwable ex = capturar(() -> repo.insertar(t));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23502");
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23502", sqlState(ex));
     }
 
     @Test
@@ -96,15 +100,15 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea t = tarea(materiaId, "EDA", 3, enDias(2));
         repo.insertar(t);
 
-        Throwable ex = catchThrowable(() -> repo.insertar(t));
+        Throwable ex = capturar(() -> repo.insertar(t));
 
-        assertThat(ex).isInstanceOf(DuplicateKeyException.class);
-        assertThat(sqlState(ex)).isEqualTo("23505");
+        assertTrue(ex instanceof DuplicateKeyException);
+        assertEquals("23505", sqlState(ex));
     }
 
     @Test
     void buscarPorId_inexistente_devuelveVacio() {
-        assertThat(repo.buscarPorId(UUID.randomUUID().toString())).isEmpty();
+        assertTrue(repo.buscarPorId(UUID.randomUUID().toString()).isEmpty());
     }
 
     @Test
@@ -113,7 +117,7 @@ class TareaRepositoryTest extends PostgresTestBase {
         repo.insertar(t);
         repo.actualizarEstado(t.id(), EstadoTarea.COMPLETADA);
 
-        assertThat(repo.buscarPorId(t.id())).contains(t.conEstado(EstadoTarea.COMPLETADA));
+        assertEquals(t.conEstado(EstadoTarea.COMPLETADA), repo.buscarPorId(t.id()).get());
     }
 
     // ---------- listarActivas ----------
@@ -129,7 +133,8 @@ class TareaRepositoryTest extends PostgresTestBase {
         repo.actualizarEstado(b.id(), EstadoTarea.VENCIDA);
         repo.actualizarEstado(c.id(), EstadoTarea.COMPLETADA);
 
-        assertThat(repo.listarActivas()).containsExactlyInAnyOrder(a, b.conEstado(EstadoTarea.VENCIDA));
+        assertTrue(repo.listarActivas().containsAll(List.of(a, b.conEstado(EstadoTarea.VENCIDA))));
+        assertEquals(List.of(a, b.conEstado(EstadoTarea.VENCIDA)).size(), repo.listarActivas().size());
     }
 
     // ---------- actualizarEstado ----------
@@ -139,15 +144,15 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea t = tarea(materiaId, "EDA", 4, enDias(5));
         repo.insertar(t);
 
-        assertThat(repo.actualizarEstado(t.id(), EstadoTarea.COMPLETADA)).isTrue();
-        assertThat(repo.actualizarEstado(t.id(), EstadoTarea.PENDIENTE)).isTrue();
+        assertTrue(repo.actualizarEstado(t.id(), EstadoTarea.COMPLETADA));
+        assertTrue(repo.actualizarEstado(t.id(), EstadoTarea.PENDIENTE));
 
-        assertThat(repo.buscarPorId(t.id())).contains(t);
+        assertEquals(t, repo.buscarPorId(t.id()).get());
     }
 
     @Test
     void actualizarEstado_idInexistente_devuelveFalse() {
-        assertThat(repo.actualizarEstado(UUID.randomUUID().toString(), EstadoTarea.COMPLETADA)).isFalse();
+        assertFalse(repo.actualizarEstado(UUID.randomUUID().toString(), EstadoTarea.COMPLETADA));
     }
 
     // ---------- actualizar (F09) ----------
@@ -160,14 +165,14 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea editada = new Tarea(t.id(), "Título nuevo", otraMateria, "Cálculo",
                 5, enDias(10), EstadoTarea.PENDIENTE);
 
-        assertThat(repo.actualizar(editada)).isTrue();
+        assertTrue(repo.actualizar(editada));
 
-        assertThat(repo.buscarPorId(t.id())).contains(editada);
+        assertEquals(editada, repo.buscarPorId(t.id()).get());
     }
 
     @Test
     void actualizar_idInexistente_devuelveFalse() {
-        assertThat(repo.actualizar(tarea(materiaId, "EDA", 3, enDias(2)))).isFalse();
+        assertFalse(repo.actualizar(tarea(materiaId, "EDA", 3, enDias(2))));
     }
 
     @Test
@@ -176,11 +181,11 @@ class TareaRepositoryTest extends PostgresTestBase {
         repo.insertar(t);
         Tarea mala = new Tarea(t.id(), t.titulo(), 99999, "X", 3, t.fechaLimite(), EstadoTarea.PENDIENTE);
 
-        Throwable ex = catchThrowable(() -> repo.actualizar(mala));
+        Throwable ex = capturar(() -> repo.actualizar(mala));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23503");
-        assertThat(repo.buscarPorId(t.id())).contains(t);
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
+        assertEquals(t, repo.buscarPorId(t.id()).get());
     }
 
     @Test
@@ -192,10 +197,10 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea reabierta = new Tarea(t.id(), t.titulo(), t.materiaId(), t.materia(),
                 t.prioridad(), enDias(7), EstadoTarea.PENDIENTE);
 
-        assertThat(repo.actualizar(reabierta)).isTrue();      // VENCIDA -> PENDIENTE
+        assertTrue(repo.actualizar(reabierta));      // VENCIDA -> PENDIENTE
 
-        assertThat(repo.buscarPorId(t.id())).contains(reabierta);
-        assertThat(contarAuditoria(t.id())).isEqualTo(2);
+        assertEquals(reabierta, repo.buscarPorId(t.id()).get());
+        assertEquals(2, contarAuditoria(t.id()));
     }
 
     @Test
@@ -205,8 +210,8 @@ class TareaRepositoryTest extends PostgresTestBase {
         Tarea soloTitulo = new Tarea(t.id(), "Otro título", t.materiaId(), t.materia(),
                 t.prioridad(), t.fechaLimite(), EstadoTarea.PENDIENTE);
 
-        assertThat(repo.actualizar(soloTitulo)).isTrue();
+        assertTrue(repo.actualizar(soloTitulo));
 
-        assertThat(contarAuditoria(t.id())).isZero();
+        assertEquals(0, contarAuditoria(t.id()));
     }
 }

@@ -23,16 +23,12 @@ public class ProfesorRepository {
         this.jdbc = jdbc;
     }
 
-    /**
-     * El id es GENERATED ALWAYS: se obtiene con RETURNING.
-     * Correo repetido => DuplicateKeyException (SQLState 23505); sin try-catch aquí.
-     */
+    // El id es GENERATED ALWAYS: se obtiene con RETURNING
+    // Un correo repetido lanza DuplicateKeyException (23505)
     public Profesor insertar(String nombre, String correo) {
-        Integer id = jdbc.queryForObject("""
-                INSERT INTO profesores (nombre, correo)
-                VALUES (?, ?)
-                RETURNING id
-                """, Integer.class, nombre, correo);
+        Integer id = jdbc.queryForObject("INSERT INTO profesores (nombre, correo) " +
+                    "VALUES (?, ?) " +
+                    "RETURNING id", Integer.class, nombre, correo);
         return new Profesor(id, nombre, correo);
     }
 

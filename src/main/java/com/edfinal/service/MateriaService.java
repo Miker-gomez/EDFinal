@@ -10,9 +10,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Servicio para la gestión del catálogo de materias y asignaturas.
- */
+// Servicio para la gestión del catálogo de materias y asignaturas.
 @Service
 public class MateriaService {
 
@@ -34,7 +32,7 @@ public class MateriaService {
 
     public Materia crear(String nombre, int profesorId) {
         Objects.requireNonNull(nombre, "El nombre no puede ser nulo");
-        if (nombre.isBlank()) {
+        if (nombre.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre no puede estar vacío");
         }
         profesorRepository.buscarPorId(profesorId)
@@ -45,7 +43,7 @@ public class MateriaService {
 
     public boolean actualizar(int id, String nombre, int profesorId) {
         Objects.requireNonNull(nombre, "El nombre no puede ser nulo");
-        if (nombre.isBlank()) {
+        if (nombre.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre no puede estar vacío");
         }
         profesorRepository.buscarPorId(profesorId)

@@ -5,13 +5,10 @@ import com.edfinal.repository.ProfesorRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Servicio para la gestión del catálogo de profesores.
- */
+// Servicio para la gestión del catálogo de profesores.
 @Service
 public class ProfesorService {
 
@@ -32,7 +29,7 @@ public class ProfesorService {
     public Profesor crear(String nombre, String correo) {
         Objects.requireNonNull(nombre, "El nombre no puede ser nulo");
         Objects.requireNonNull(correo, "El correo no puede ser nulo");
-        if (nombre.isBlank()) {
+        if (nombre.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre no puede estar vacío");
         }
         if (!correo.contains("@")) {
