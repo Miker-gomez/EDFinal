@@ -7,8 +7,10 @@ public class Excepciones {
     public static Throwable capturar(Runnable bloque) {
 
         try {
+
             bloque.run();
-        } catch ( Throwable e ){
+
+        } catch (Throwable e) {
             return e;
         }
         return null;

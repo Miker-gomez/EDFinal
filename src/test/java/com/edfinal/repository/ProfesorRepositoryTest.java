@@ -19,29 +19,36 @@ class ProfesorRepositoryTest extends PostgresTestBase {
 
     @Test
     void insertar_devuelveIdGeneradoYPersiste() {
+
         Profesor p = repo.insertar("Ana Gómez", "ana@u.edu");
 
         assertTrue(p.id() > 0);
         assertEquals(p, repo.buscarPorId(p.id()).get());
+
     }
 
     @Test
     void buscarPorId_inexistente_devuelveVacio() {
+
         assertTrue(repo.buscarPorId(99999).isEmpty());
+
     }
 
     @Test
     void listar_ordenaPorNombre() {
+
         repo.insertar("Zoe", "z@u.edu");
         repo.insertar("Ana", "a@u.edu");
 
         List<Profesor> lista = repo.listar();
         assertEquals("Ana", lista.get(0).nombre());
         assertEquals("Zoe", lista.get(1).nombre());
+
     }
 
     @Test
     void insertar_correoDuplicado_unique_23505() {
+
         repo.insertar("Ana", "ana@u.edu");
 
         Throwable ex = capturar(() -> repo.insertar("Otra", "ana@u.edu"));
@@ -49,22 +56,27 @@ class ProfesorRepositoryTest extends PostgresTestBase {
         assertTrue(ex instanceof DuplicateKeyException);
         assertEquals("23505", sqlState(ex));
         assertEquals(1, repo.listar().size());
+
     }
 
     @Test
     void insertar_correoSinArroba_check_23514() {
+
         Throwable ex = capturar(() -> repo.insertar("Ana", "sin-arroba"));
 
         assertTrue(ex instanceof DataIntegrityViolationException);
         assertEquals("23514", sqlState(ex));
         assertTrue(repo.listar().isEmpty());
+
     }
 
     @Test
     void insertar_nombreNulo_notNull_23502() {
+
         Throwable ex = capturar(() -> repo.insertar(null, "ana@u.edu"));
 
         assertTrue(ex instanceof DataIntegrityViolationException);
         assertEquals("23502", sqlState(ex));
+
     }
 }

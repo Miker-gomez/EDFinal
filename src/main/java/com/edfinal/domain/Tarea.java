@@ -23,7 +23,7 @@ public record Tarea(
         int resultado = 0;
 
         resultado = Integer.compare(this.prioridad, otra.prioridad);
-        if ( resultado != 0 ){
+        if (resultado != 0) {
             return resultado;
         }
 
@@ -34,11 +34,15 @@ public record Tarea(
 
     @Override
     public String getId() {
+
         return id;
+
     }
 
     public Tarea conEstado(EstadoTarea nuevoEstado) {
+
         return new Tarea(id, titulo, materiaId, materia, prioridad, fechaLimite, nuevoEstado);
+
     }
 
 }

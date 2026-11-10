@@ -20,7 +20,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     public void insert(T elem) {
 
         Objects.requireNonNull(elem, "elem no puede ser null");
-        if ( index.containsKey(elem.getId()) ){
+        if (index.containsKey(elem.getId())) {
             throw new IllegalArgumentException("Clave duplicada: " + elem.getId());
         }
 
@@ -34,7 +34,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     // Devuelve null si el montículo está vacío
     public T peekMax() {
 
-        if ( isEmpty() ){
+        if (isEmpty()) {
             return null;
         }
         return data.get(0);
@@ -44,7 +44,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     // Devuelve null si el montículo está vacío
     public T extractMax() {
 
-        if ( isEmpty() ){
+        if (isEmpty()) {
             return null;
         }
         T max = data.get(0);
@@ -57,7 +57,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     public T remove(String id) {
 
         Integer i = index.get(id);
-        if ( i == null ){
+        if (i == null) {
             return null;
         }
         T removed = data.get(i);
@@ -67,15 +67,21 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     }
 
     public boolean contains(String id) {
+
         return index.containsKey(id);
+
     }
 
     public int size() {
+
         return data.size();
+
     }
 
     public boolean isEmpty() {
+
         return data.isEmpty();
+
     }
 
     ////////////////////////////////////////////////////////////////
@@ -86,7 +92,8 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
         int last = data.size() - 1;
         index.remove(removed.getId());
 
-        if ( i != last ){
+        if (i != last) {
+
             // El último ocupa el hueco y se acomoda hacia arriba o hacia abajo
             T moved = data.get(last);
             data.set(i, moved);
@@ -94,7 +101,9 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
             data.remove(last);
             heapifyDown(i);
             heapifyUp(i);
-        } else {
+
+        }
+        else {
             data.remove(last);
         }
 
@@ -102,34 +111,38 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
     private void heapifyUp(int i) {
 
-        while ( i > 0 ){
+        while (i > 0) {
+
             int parent = (i - 1) / 2;
-            if ( data.get(i).compareTo(data.get(parent)) <= 0 ){
+            if (data.get(i).compareTo(data.get(parent)) <= 0) {
                 break;
             }
             swap(i, parent);
             i = parent;
+
         }
 
     }
 
     private void heapifyDown(int i) {
 
-        while ( true ){
+        while (true) {
+
             int left = 2 * i + 1;
             int right = left + 1;
             int largest = i;
-            if ( left < data.size() && data.get(left).compareTo(data.get(largest)) > 0 ){
+            if (left < data.size() && data.get(left).compareTo(data.get(largest)) > 0) {
                 largest = left;
             }
-            if ( right < data.size() && data.get(right).compareTo(data.get(largest)) > 0 ){
+            if (right < data.size() && data.get(right).compareTo(data.get(largest)) > 0) {
                 largest = right;
             }
-            if ( largest == i ){
+            if (largest == i) {
                 break;
             }
             swap(i, largest);
             i = largest;
+
         }
 
     }
@@ -147,18 +160,22 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
     // Solo para pruebas: verifica la propiedad de montículo y la coherencia del mapa
     boolean isValidHeap() {
 
-        for ( int i = 1; i < data.size(); i++ ){
-            if ( data.get(i).compareTo(data.get((i - 1) / 2)) > 0 ){
+        for (int i = 1; i < data.size(); i++) {
+
+            if (data.get(i).compareTo(data.get((i - 1) / 2)) > 0) {
                 return false;
             }
+
         }
-        if ( index.size() != data.size() ){
+        if (index.size() != data.size()) {
             return false;
         }
-        for ( int i = 0; i < data.size(); i++ ){
-            if ( !Integer.valueOf(i).equals(index.get(data.get(i).getId())) ){
+        for (int i = 0; i < data.size(); i++) {
+
+            if (!Integer.valueOf(i).equals(index.get(data.get(i).getId()))) {
                 return false;
             }
+
         }
         return true;
 

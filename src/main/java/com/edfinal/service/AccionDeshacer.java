@@ -8,6 +8,7 @@ public record AccionDeshacer(
         TipoAccion tipo,
         Tarea tareaPrevia
 ) {
+
     public enum TipoAccion {
         COMPLETAR,
         MODIFICAR
@@ -17,4 +18,5 @@ public record AccionDeshacer(
         Objects.requireNonNull(tipo, "El tipo de acción no puede ser nulo");
         Objects.requireNonNull(tareaPrevia, "La tarea previa no puede ser nula");
     }
+
 }

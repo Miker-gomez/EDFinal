@@ -22,18 +22,24 @@ class MaxHeapTest {
 
         @Override
         public int compareTo(Item o) {
+
             return Integer.compare(p, o.p);
+
         }
 
         @Override
         public String getId() {
+
             return String.valueOf(id);
+
         }
 
     }
 
     private static Tarea tarea(String id, int prioridad, String fecha) {
+
         return new Tarea(id, "T-" + id, 1, "Materia", prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
+
     }
 
     @Test
@@ -93,14 +99,18 @@ class MaxHeapTest {
         int[] entrada = {5, 1, 9, 3, 7, 2, 8, 6, 4, 10};
 
         // Act
-        for ( int n : entrada ){
+        for (int n : entrada) {
+
             heap.insert(new Item(n, n));
             assertTrue(heap.isValidHeap());
+
         }
         List<Integer> salida = new ArrayList<>();
-        while ( !heap.isEmpty() ){
+        while (!heap.isEmpty()) {
+
             salida.add(heap.extractMax().p());
             assertTrue(heap.isValidHeap());
+
         }
 
         // Assert
@@ -114,13 +124,17 @@ class MaxHeapTest {
 
         // Arrange
         MaxHeap<Item> heap = new MaxHeap<>();
-        for ( int i = 0; i < 5; i++ ){
+        for (int i = 0; i < 5; i++) {
+
             heap.insert(new Item(i, 3));
+
         }
 
         // Act y Assert
-        for ( int i = 0; i < 5; i++ ){
+        for (int i = 0; i < 5; i++) {
+
             assertEquals(3, heap.extractMax().p());
+
         }
         assertTrue(heap.isEmpty());
 
@@ -134,16 +148,20 @@ class MaxHeapTest {
         MaxHeap<Item> heap = new MaxHeap<>();
 
         // Act
-        for ( int i = 0; i < 1000; i++ ){
+        for (int i = 0; i < 1000; i++) {
+
             heap.insert(new Item(i, i));
+
         }
 
         // Assert
         assertEquals(1000, heap.size());
         assertTrue(heap.isValidHeap());
         assertEquals(999, heap.peekMax().p());
-        for ( int esperado = 999; esperado >= 0; esperado-- ){
+        for (int esperado = 999; esperado >= 0; esperado--) {
+
             assertEquals(esperado, heap.extractMax().p());
+
         }
 
     }
@@ -154,8 +172,10 @@ class MaxHeapTest {
 
         // Arrange
         MaxHeap<Item> heap = new MaxHeap<>();
-        for ( int i = 1; i <= 10; i++ ){
+        for (int i = 1; i <= 10; i++) {
+
             heap.insert(new Item(i, i * 10));
+
         }
 
         // Act y Assert
@@ -176,22 +196,28 @@ class MaxHeapTest {
 
         // Arrange
         MaxHeap<Item> heap = new MaxHeap<>();
-        for ( int i = 0; i < 200; i++ ){
+        for (int i = 0; i < 200; i++) {
+
             heap.insert(new Item(i, (i * 37) % 50));
+
         }
 
         // Act
-        for ( int k = 0; k < 200; k += 3 ){
+        for (int k = 0; k < 200; k += 3) {
+
             assertEquals(k, heap.remove(String.valueOf(k)).id());
             assertTrue(heap.isValidHeap());
+
         }
 
         // Assert
         int anterior = Integer.MAX_VALUE;
-        while ( !heap.isEmpty() ){
+        while (!heap.isEmpty()) {
+
             int p = heap.extractMax().p();
             assertTrue(p <= anterior);
             anterior = p;
+
         }
 
     }

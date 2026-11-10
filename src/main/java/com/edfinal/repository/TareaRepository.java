@@ -43,37 +43,48 @@ public class TareaRepository {
     private final JdbcTemplate jdbc;
 
     public TareaRepository(JdbcTemplate jdbc) {
+
         this.jdbc = jdbc;
+
     }
 
     // Usa materiaId y prioridad; el nombre de la materia no se persiste
     // Fecha pasada: trigger de plazo (23514). Materia inexistente: 23503
     public void insertar(Tarea t) {
+
         jdbc.update("INSERT INTO tareas (id, titulo, materia_id, estado_id, prioridad_id, fecha_limite) " +
                     "VALUES (?::uuid, ?, ?, (SELECT id FROM estado WHERE nombre = ?), ?, ?)",
                 t.id(), t.titulo(), t.materiaId(), t.estado().name(), t.prioridad(), t.fechaLimite());
+
     }
 
     // PENDIENTE + VENCIDA: lo que vive en heap y HashMap.
     public List<Tarea> listarActivas() {
+
         return jdbc.query(SELECT_BASE + " WHERE e.nombre IN ('PENDIENTE', 'VENCIDA')", MAPPER);
+
     }
 
     // Cualquier estado (también COMPLETADA): deshacer relee la fila desde aquí.
     public Optional<Tarea> buscarPorId(String id) {
+
         return jdbc.query(SELECT_BASE + " WHERE t.id = ?::uuid", MAPPER, id)
                 .stream().findFirst();
+
     }
 
     // Devuelve true si se actualizó una fila; false si el id no existe
     public boolean actualizarEstado(String id, EstadoTarea estado) {
+
         return jdbc.update("UPDATE tareas " +
                     "SET estado_id = (SELECT id FROM estado WHERE nombre = ?) " +
                     "WHERE id = ?::uuid", estado.name(), id) == 1;
+
     }
 
     // Edición (F09): persiste titulo, materia_id, prioridad, fecha_limite y estado.
     public boolean actualizar(Tarea t) {
+
         return jdbc.update("UPDATE tareas " +
                     "SET titulo       = ?, " +
                     "materia_id   = ?, " +
@@ -82,16 +93,21 @@ public class TareaRepository {
                     "estado_id    = (SELECT id FROM estado WHERE nombre = ?) " +
                     "WHERE id = ?::uuid",
                 t.titulo(), t.materiaId(), t.prioridad(), t.fechaLimite(), t.estado().name(), t.id()) == 1;
+
     }
 
     // CALL sp_marcar_vencidas: el INOUT devuelve la cantidad marcada.
     public int marcarVencidas() {
+
         Integer marcadas = jdbc.queryForObject("CALL sp_marcar_vencidas(0)", Integer.class);
         return marcadas == null ? 0 : marcadas;
+
     }
 
     public List<EstadisticaMateria> estadisticasPorMateria() {
+
         return jdbc.query("SELECT materia_id, materia, total, pendientes, completadas, vencidas " +
                     "FROM sp_estadisticas_entrega()", STATS_MAPPER);
+
     }
 }
