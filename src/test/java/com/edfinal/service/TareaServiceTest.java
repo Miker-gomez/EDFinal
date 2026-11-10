@@ -2,6 +2,9 @@ package com.edfinal.service;
 
 import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Tarea;
+import com.edfinal.exception.MateriaNoEncontradaException;
+import com.edfinal.exception.NadaQueDeshacerException;
+import com.edfinal.exception.TareaNoEncontradaException;
 import com.edfinal.repository.MateriaRepository;
 import com.edfinal.repository.TareaRepository;
 import com.edfinal.support.PostgresTestBase;
@@ -11,8 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.List;
 
 import static com.edfinal.support.Excepciones.capturar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -106,7 +108,7 @@ class TareaServiceTest extends PostgresTestBase {
         Throwable ex = capturar(() -> service.crearTarea("Taller", 99999, 3, enDias(1)));
 
         // Assert
-        assertTrue(ex instanceof NoSuchElementException);
+        assertTrue(ex instanceof MateriaNoEncontradaException);
         assertTrue(tareaRepository.listarActivas().isEmpty());
 
     }
@@ -139,12 +141,11 @@ class TareaServiceTest extends PostgresTestBase {
         service.completarTarea(t1.id());
 
         // Act
-        Optional<Tarea> revertida = service.deshacer();
+        Tarea revertida = service.deshacer();
 
         // Assert
-        assertTrue(revertida.isPresent());
-        assertEquals(t1.id(), revertida.get().id());
-        assertEquals(EstadoTarea.PENDIENTE, revertida.get().estado());
+        assertEquals(t1.id(), revertida.id());
+        assertEquals(EstadoTarea.PENDIENTE, revertida.estado());
         assertEquals(EstadoTarea.PENDIENTE, tareaRepository.buscarPorId(t1.id()).get().estado());
         assertEquals(1, service.cantidadTareasEnHeap());
         assertEquals(t1, service.obtenerMasUrgente().get());
@@ -153,17 +154,20 @@ class TareaServiceTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("deshacer sin acciones pendientes devuelve vacío")
-    void deshacer_pilaVacia_retornaVacio() {
+    @DisplayName("deshacer sin acciones pendientes lanza NadaQueDeshacerException")
+    void deshacer_pilaVacia_lanzaExcepcion() {
+
+        // Act
+        Throwable ex = capturar(() -> service.deshacer());
 
         // Assert
-        assertTrue(service.deshacer().isEmpty());
+        assertTrue(ex instanceof NadaQueDeshacerException);
 
     }
 
     @Test
-    @DisplayName("actualizarTarea ajusta la prioridad en el heap y se puede deshacer")
-    void actualizarTarea_ajustaHeapYDeshacer() {
+    @DisplayName("actualizarTarea ajusta la prioridad en el heap y no se apila en deshacer")
+    void actualizarTarea_ajustaHeapSinApilar() {
 
         // Arrange
         Tarea t1 = service.crearTarea("Taller", materiaId, 2, enDias(4));
@@ -175,14 +179,117 @@ class TareaServiceTest extends PostgresTestBase {
         assertEquals(5, actualizada.prioridad());
         assertEquals("Taller Avanzado", actualizada.titulo());
         assertEquals(actualizada, service.obtenerMasUrgente().get());
+        assertEquals(actualizada, tareaRepository.buscarPorId(t1.id()).get());
+        assertEquals(0, service.tamanoPilaDeshacer());
+
+    }
+
+    @Test
+    @DisplayName("actualizarTarea rechaza una fecha pasada y deja todo intacto")
+    void actualizarTarea_fechaPasada_lanzaExcepcion() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 2, enDias(4));
+
+        // Act
+        Throwable ex = capturar(() -> service.actualizarTarea(t1.id(), "Taller", materiaId, 2, LocalDateTime.now().minusHours(1)));
+
+        // Assert
+        assertTrue(ex instanceof IllegalArgumentException);
+        assertEquals(t1, service.buscarPorId(t1.id()).get());
+        assertEquals(t1, tareaRepository.buscarPorId(t1.id()).get());
+
+    }
+
+    @Test
+    @DisplayName("actualizarTarea sobre una tarea completada lanza TareaNoEncontradaException")
+    void actualizarTarea_completada_lanzaExcepcion() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 2, enDias(4));
+        service.completarTarea(t1.id());
+
+        // Act
+        Throwable ex = capturar(() -> service.actualizarTarea(t1.id(), "Taller", materiaId, 2, enDias(4)));
+
+        // Assert
+        assertTrue(ex instanceof TareaNoEncontradaException);
+
+    }
+
+    @Test
+    @DisplayName("eliminarTarea saca la tarea del flujo activo y se puede deshacer")
+    void eliminarTarea_yDeshacer() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 3, enDias(2));
+
+        // Act
+        service.eliminarTarea(t1.id());
+
+        // Assert
+        assertTrue(service.buscarPorId(t1.id()).isEmpty());
+        assertEquals(EstadoTarea.COMPLETADA, tareaRepository.buscarPorId(t1.id()).get().estado());
         assertEquals(1, service.tamanoPilaDeshacer());
 
         // Act
-        Optional<Tarea> revertida = service.deshacer();
+        Tarea restaurada = service.deshacer();
 
         // Assert
-        assertEquals(t1, revertida.get());
+        assertEquals(t1, restaurada);
         assertEquals(t1, service.obtenerMasUrgente().get());
+
+    }
+
+    @Test
+    @DisplayName("deshacer relee la fila: conserva una edición hecha después de otra tarea")
+    void deshacer_conservaEdicionPosterior() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 3, enDias(2));
+        Tarea t2 = service.crearTarea("Parcial", materiaId, 2, enDias(3));
+        service.completarTarea(t1.id());
+        service.actualizarTarea(t2.id(), "Parcial final", materiaId, 4, enDias(3));
+
+        // Act
+        service.deshacer();
+
+        // Assert
+        assertEquals("Parcial final", service.buscarPorId(t2.id()).get().titulo());
+        assertEquals(2, service.cantidadTareasEnHeap());
+
+    }
+
+    @Test
+    @DisplayName("listarActivas devuelve de la más urgente a la menos urgente")
+    void listarActivas_ordenaPorUrgencia() {
+
+        // Arrange
+        Tarea baja = service.crearTarea("Baja", materiaId, 1, enDias(1));
+        Tarea alta = service.crearTarea("Alta", materiaId, 5, enDias(5));
+        Tarea mediaCercana = service.crearTarea("Media cercana", materiaId, 3, enDias(1));
+        Tarea mediaLejana = service.crearTarea("Media lejana", materiaId, 3, enDias(6));
+
+        // Act
+        List<Tarea> lista = service.listarActivas();
+
+        // Assert
+        assertEquals(List.of(alta, mediaCercana, mediaLejana, baja), lista);
+
+    }
+
+    @Test
+    @DisplayName("buscarPorId no devuelve tareas completadas")
+    void buscarPorId_completada_estaVacio() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 3, enDias(2));
+
+        // Act
+        service.completarTarea(t1.id());
+
+        // Assert
+        assertTrue(service.buscarPorId(t1.id()).isEmpty());
 
     }
 

@@ -4,18 +4,22 @@ import com.edfinal.domain.EstadisticaMateria;
 import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Materia;
 import com.edfinal.domain.Tarea;
+import com.edfinal.exception.MateriaNoEncontradaException;
+import com.edfinal.exception.NadaQueDeshacerException;
+import com.edfinal.exception.TareaNoEncontradaException;
 import com.edfinal.repository.MateriaRepository;
 import com.edfinal.repository.TareaRepository;
 import com.edfinal.structures.MaxHeap;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Stack;
@@ -23,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 // Sincroniza PostgreSQL (fuente de verdad) con el MaxHeap, el HashMap y la pila de deshacer
+@Log4j2
 @Service
 public class TareaService {
 
@@ -50,7 +55,7 @@ public class TareaService {
 
     }
 
-    // Recarga las tareas activas (PENDIENTE y VENCIDA) desde la base de datos a las estructuras en memoria.
+    // Recarga las tareas activas (PENDIENTE y VENCIDA) desde la base de datos; la pila no se toca
     public void recargarDesdeBaseDeDatos() {
 
         lock.writeLock().lock();
@@ -62,7 +67,6 @@ public class TareaService {
 
             }
             mapaActivas.clear();
-            pilaDeshacer.clear();
 
             List<Tarea> activas = tareaRepository.listarActivas();
             for (Tarea t : activas) {
@@ -71,6 +75,7 @@ public class TareaService {
                 mapaActivas.put(t.id(), t);
 
             }
+            log.debug("Estructuras recargadas desde la base de datos. Tareas activas: {}", heap.size());
 
         } finally {
             lock.writeLock().unlock();
@@ -98,25 +103,23 @@ public class TareaService {
         lock.readLock().lock();
         try {
 
-            Tarea enMemoria = mapaActivas.get(id);
-            if (enMemoria != null) {
-                return Optional.of(enMemoria);
-            }
+            return Optional.ofNullable(mapaActivas.get(id));
 
         } finally {
             lock.readLock().unlock();
         }
-        return tareaRepository.buscarPorId(id);
 
     }
 
-    // Retorna una copia de la lista de tareas activas presentes en memoria.
+    // Retorna las tareas activas de la más urgente a la menos urgente.
     public List<Tarea> listarActivas() {
 
         lock.readLock().lock();
         try {
 
-            return new ArrayList<>(mapaActivas.values());
+            List<Tarea> lista = new ArrayList<>(mapaActivas.values());
+            Collections.sort(lista, Collections.reverseOrder());
+            return lista;
 
         } finally {
             lock.readLock().unlock();
@@ -127,30 +130,23 @@ public class TareaService {
     // Crea una nueva tarea y la sincroniza en PostgreSQL y en las estructuras en memoria.
     public Tarea crearTarea(String titulo, int materiaId, int prioridad, LocalDateTime fechaLimite) {
 
-        Objects.requireNonNull(titulo, "El título no puede ser nulo");
-        Objects.requireNonNull(fechaLimite, "La fecha límite no puede ser nula");
-        if (titulo.trim().isEmpty()) {
-            throw new IllegalArgumentException("El título no puede estar vacío");
-        }
-        if (prioridad < 1 || prioridad > 5) {
-            throw new IllegalArgumentException("La prioridad debe estar entre 1 y 5");
-        }
+        validarDatos(titulo, prioridad, fechaLimite);
         if (fechaLimite.isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("La fecha límite no puede ser anterior al momento actual");
         }
 
-        Materia materia = materiaRepository.buscarPorId(materiaId)
-                .orElseThrow(() -> new NoSuchElementException("La materia con ID " + materiaId + " no existe"));
-
+        Materia materia = buscarMateria(materiaId);
         String id = UUID.randomUUID().toString();
         Tarea nueva = new Tarea(id, titulo.trim(), materiaId, materia.nombre(), prioridad, fechaLimite, EstadoTarea.PENDIENTE);
 
         lock.writeLock().lock();
         try {
 
+            // Primero la base de datos; si falla, la memoria queda intacta
             tareaRepository.insertar(nueva);
             heap.insert(nueva);
             mapaActivas.put(nueva.id(), nueva);
+            log.info("Tarea {} insertada en MaxHeap. Nuevo tamaño: {}", nueva.id(), heap.size());
             return nueva;
 
         } finally {
@@ -159,92 +155,46 @@ public class TareaService {
 
     }
 
-    // Marca la tarea como COMPLETADA, la saca del heap y del mapa y apila la acción
-    public Tarea completarTarea(String id) {
-
-        lock.writeLock().lock();
-        try {
-
-            Tarea actual = mapaActivas.get(id);
-            if (actual == null) {
-                actual = tareaRepository.buscarPorId(id)
-                        .orElseThrow(() -> new NoSuchElementException("Tarea no encontrada con ID: " + id));
-            }
-
-            if (actual.estado() == EstadoTarea.COMPLETADA) {
-                return actual;
-            }
-
-            tareaRepository.actualizarEstado(id, EstadoTarea.COMPLETADA);
-
-            heap.remove(id);
-            mapaActivas.remove(id);
-
-            pilaDeshacer.push(new AccionDeshacer(AccionDeshacer.TipoAccion.COMPLETAR, actual));
-
-            return actual.conEstado(EstadoTarea.COMPLETADA);
-
-        } finally {
-            lock.writeLock().unlock();
-        }
-
-    }
-
-    // Edita la tarea (F09). Si estaba VENCIDA y la nueva fecha es futura, pasa a PENDIENTE
+    // Edita una tarea activa (F09). No se registra en la pila de deshacer.
     public Tarea actualizarTarea(String id, String nuevoTitulo, int nuevaMateriaId, int nuevaPrioridad, LocalDateTime nuevaFechaLimite) {
 
-        Objects.requireNonNull(nuevoTitulo, "El título no puede ser nulo");
-        Objects.requireNonNull(nuevaFechaLimite, "La fecha límite no puede ser nula");
-        if (nuevoTitulo.trim().isEmpty()) {
-            throw new IllegalArgumentException("El título no puede estar vacío");
-        }
-        if (nuevaPrioridad < 1 || nuevaPrioridad > 5) {
-            throw new IllegalArgumentException("La prioridad debe estar entre 1 y 5");
-        }
-
-        Materia materia = materiaRepository.buscarPorId(nuevaMateriaId)
-                .orElseThrow(() -> new NoSuchElementException("La materia con ID " + nuevaMateriaId + " no existe"));
+        validarDatos(nuevoTitulo, nuevaPrioridad, nuevaFechaLimite);
+        Materia materia = buscarMateria(nuevaMateriaId);
 
         lock.writeLock().lock();
         try {
 
             Tarea actual = mapaActivas.get(id);
             if (actual == null) {
-                actual = tareaRepository.buscarPorId(id)
-                        .orElseThrow(() -> new NoSuchElementException("Tarea no encontrada con ID: " + id));
+                throw new TareaNoEncontradaException("Tarea no encontrada");
             }
 
-            // Si estaba VENCIDA y la nueva fecha es futura, vuelve a PENDIENTE
+            // Si la fecha cambia debe ser futura y la tarea vuelve a PENDIENTE
             EstadoTarea nuevoEstado = actual.estado();
-            if (actual.estado() == EstadoTarea.VENCIDA && nuevaFechaLimite.isAfter(LocalDateTime.now())) {
+            if (!nuevaFechaLimite.equals(actual.fechaLimite())) {
+
+                if (nuevaFechaLimite.isBefore(LocalDateTime.now())) {
+                    throw new IllegalArgumentException("La fecha límite no puede ser anterior al momento actual");
+                }
                 nuevoEstado = EstadoTarea.PENDIENTE;
+
             }
 
-            Tarea modificada = new Tarea(
-                    id,
-                    nuevoTitulo.trim(),
-                    nuevaMateriaId,
-                    materia.nombre(),
-                    nuevaPrioridad,
-                    nuevaFechaLimite,
-                    nuevoEstado
-            );
+            Tarea modificada = new Tarea(id, nuevoTitulo.trim(), nuevaMateriaId, materia.nombre(),
+                    nuevaPrioridad, nuevaFechaLimite, nuevoEstado);
 
-            tareaRepository.actualizar(modificada);
+            // Primero la base de datos; luego se relee la fila para guardar lo que quedó persistido
+            if (!tareaRepository.actualizar(modificada)) {
+                throw new TareaNoEncontradaException("Tarea no encontrada");
+            }
+            Tarea guardada = tareaRepository.buscarPorId(id)
+                    .orElseThrow(() -> new TareaNoEncontradaException("Tarea no encontrada"));
 
-            // Reajustar en MaxHeap y HashMap
             heap.remove(id);
-            if (nuevoEstado != EstadoTarea.COMPLETADA) {
-                heap.insert(modificada);
-                mapaActivas.put(id, modificada);
-            }
-            else {
-                mapaActivas.remove(id);
-            }
-
-            pilaDeshacer.push(new AccionDeshacer(AccionDeshacer.TipoAccion.MODIFICAR, actual));
-
-            return modificada;
+            heap.insert(guardada);
+            mapaActivas.put(id, guardada);
+            log.info("Tarea {} editada y reubicada en MaxHeap. Tamaño: {}", id, heap.size());
+            return guardada;
 
         } finally {
             lock.writeLock().unlock();
@@ -252,43 +202,44 @@ public class TareaService {
 
     }
 
-    // Deshace la última acción registrada en la pila (LIFO).
-    public Optional<Tarea> deshacer() {
+    // Completar y eliminar sacan la tarea del flujo activo; solo cambia el tipo de acción apilada
+    public Tarea completarTarea(String id) {
+
+        return sacarDelFlujoActivo(id, AccionDeshacer.TipoAccion.COMPLETAR);
+
+    }
+
+    public void eliminarTarea(String id) {
+
+        sacarDelFlujoActivo(id, AccionDeshacer.TipoAccion.ELIMINAR);
+
+    }
+
+    // Revierte la última acción de la pila (LIFO) y devuelve la tarea restaurada.
+    public Tarea deshacer() {
 
         lock.writeLock().lock();
         try {
 
             if (pilaDeshacer.isEmpty()) {
-                return Optional.empty();
+                throw new NadaQueDeshacerException("No hay acciones para deshacer");
             }
 
-            AccionDeshacer accion = pilaDeshacer.pop();
+            // Se mira la cima y solo se desapila cuando la base de datos ya aceptó el cambio
+            AccionDeshacer accion = pilaDeshacer.peek();
             Tarea previa = accion.tareaPrevia();
 
-            switch (accion.tipo()) {
+            tareaRepository.actualizarEstado(previa.id(), previa.estado());
+            Tarea restaurada = tareaRepository.buscarPorId(previa.id())
+                    .orElseThrow(() -> new TareaNoEncontradaException("Tarea no encontrada"));
+            pilaDeshacer.pop();
 
-                case COMPLETAR -> {
-                    // Volver al estado previo (PENDIENTE o VENCIDA)
-                    tareaRepository.actualizarEstado(previa.id(), previa.estado());
-                    heap.remove(previa.id());
-                    heap.insert(previa);
-                    mapaActivas.put(previa.id(), previa);
-                }
-                case MODIFICAR -> {
-                    tareaRepository.actualizar(previa);
-                    heap.remove(previa.id());
-                    if (previa.estado() != EstadoTarea.COMPLETADA) {
-                        heap.insert(previa);
-                        mapaActivas.put(previa.id(), previa);
-                    }
-                    else {
-                        mapaActivas.remove(previa.id());
-                    }
-                }
-
-            }
-
-            return Optional.of(previa);
+            heap.remove(restaurada.id());
+            heap.insert(restaurada);
+            mapaActivas.put(restaurada.id(), restaurada);
+            log.info("Acción {} deshecha. Tarea {} reinsertada en MaxHeap. Tamaño: {}",
+                    accion.tipo(), restaurada.id(), heap.size());
+            return restaurada;
 
         } finally {
             lock.writeLock().unlock();
@@ -296,34 +247,15 @@ public class TareaService {
 
     }
 
-    // Ejecuta el procedimiento almacenado sp_marcar_vencidas y actualiza el estado en memoria
+    // Ejecuta sp_marcar_vencidas y recarga las estructuras bajo el mismo lock
     public int sincronizarVencidas() {
 
         lock.writeLock().lock();
         try {
 
             int marcadas = tareaRepository.marcarVencidas();
-            if (marcadas > 0) {
-
-                LocalDateTime ahora = LocalDateTime.now();
-                List<Tarea> aActualizar = new ArrayList<>();
-                for (Tarea t : mapaActivas.values()) {
-
-                    if (t.estado() == EstadoTarea.PENDIENTE && t.fechaLimite().isBefore(ahora)) {
-                        aActualizar.add(t);
-                    }
-
-                }
-                for (Tarea vencida : aActualizar) {
-
-                    Tarea actualizada = vencida.conEstado(EstadoTarea.VENCIDA);
-                    heap.remove(vencida.id());
-                    heap.insert(actualizada);
-                    mapaActivas.put(vencida.id(), actualizada);
-
-                }
-
-            }
+            recargarDesdeBaseDeDatos();
+            log.info("Tareas marcadas como vencidas: {}", marcadas);
             return marcadas;
 
         } finally {
@@ -364,6 +296,50 @@ public class TareaService {
         } finally {
             lock.readLock().unlock();
         }
+
+    }
+
+    private Tarea sacarDelFlujoActivo(String id, AccionDeshacer.TipoAccion tipo) {
+
+        lock.writeLock().lock();
+        try {
+
+            Tarea actual = mapaActivas.get(id);
+            if (actual == null) {
+                throw new TareaNoEncontradaException("Tarea no encontrada");
+            }
+
+            // Primero la base de datos; si falla, el heap y el mapa quedan intactos
+            tareaRepository.actualizarEstado(id, EstadoTarea.COMPLETADA);
+            heap.remove(id);
+            mapaActivas.remove(id);
+            pilaDeshacer.push(new AccionDeshacer(tipo, actual));
+            log.info("Tarea {} retirada del MaxHeap por {}. Nuevo tamaño: {}", id, tipo, heap.size());
+            return actual.conEstado(EstadoTarea.COMPLETADA);
+
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+    }
+
+    private void validarDatos(String titulo, int prioridad, LocalDateTime fechaLimite) {
+
+        Objects.requireNonNull(titulo, "El título no puede ser nulo");
+        Objects.requireNonNull(fechaLimite, "La fecha límite no puede ser nula");
+        if (titulo.trim().isEmpty()) {
+            throw new IllegalArgumentException("El título no puede estar vacío");
+        }
+        if (prioridad < 1 || prioridad > 5) {
+            throw new IllegalArgumentException("La prioridad debe estar entre 1 y 5");
+        }
+
+    }
+
+    private Materia buscarMateria(int materiaId) {
+
+        return materiaRepository.buscarPorId(materiaId)
+                .orElseThrow(() -> new MateriaNoEncontradaException("La materia con ID " + materiaId + " no existe"));
 
     }
 }

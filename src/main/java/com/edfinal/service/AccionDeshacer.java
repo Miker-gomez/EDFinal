@@ -11,7 +11,7 @@ public record AccionDeshacer(
 
     public enum TipoAccion {
         COMPLETAR,
-        MODIFICAR
+        ELIMINAR
     }
 
     public AccionDeshacer {
