@@ -1,0 +1,15 @@
+/* Distintivo de las tareas vencidas */
+.fila-vencida {
+  background-color: #f8d7da;
+}
+
+/* Resalta el título de la tarea crítica */
+#criticaContenido .titulo-critica {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Los botones de acción no se parten en varias líneas */
+.acciones {
+  white-space: nowrap;
+}
