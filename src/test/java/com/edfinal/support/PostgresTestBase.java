@@ -6,6 +6,8 @@ import com.edfinal.domain.Tarea;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
@@ -52,6 +54,16 @@ public abstract class PostgresTestBase {
 
         }
         return pg;
+
+    }
+
+    // Las pruebas con contexto de Spring apuntan a este mismo contenedor
+    @DynamicPropertySource
+    static void propiedadesDeSpring(DynamicPropertyRegistry registro) {
+
+        registro.add("spring.datasource.url", PG::getJdbcUrl);
+        registro.add("spring.datasource.username", PG::getUsername);
+        registro.add("spring.datasource.password", PG::getPassword);
 
     }
 
