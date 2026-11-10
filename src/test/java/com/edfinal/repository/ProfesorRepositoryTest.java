@@ -2,12 +2,16 @@ package com.edfinal.repository;
 
 import com.edfinal.domain.Profesor;
 import com.edfinal.support.PostgresTestBase;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
+import java.util.List;
+
+import static com.edfinal.support.Excepciones.capturar;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProfesorRepositoryTest extends PostgresTestBase {
 
@@ -15,50 +19,64 @@ class ProfesorRepositoryTest extends PostgresTestBase {
 
     @Test
     void insertar_devuelveIdGeneradoYPersiste() {
+
         Profesor p = repo.insertar("Ana Gómez", "ana@u.edu");
 
-        assertThat(p.id()).isPositive();
-        assertThat(repo.buscarPorId(p.id())).contains(p);
+        assertTrue(p.id() > 0);
+        assertEquals(p, repo.buscarPorId(p.id()).get());
+
     }
 
     @Test
     void buscarPorId_inexistente_devuelveVacio() {
-        assertThat(repo.buscarPorId(99999)).isEmpty();
+
+        assertTrue(repo.buscarPorId(99999).isEmpty());
+
     }
 
     @Test
     void listar_ordenaPorNombre() {
+
         repo.insertar("Zoe", "z@u.edu");
         repo.insertar("Ana", "a@u.edu");
 
-        assertThat(repo.listar()).extracting(Profesor::nombre).containsExactly("Ana", "Zoe");
+        List<Profesor> lista = repo.listar();
+        assertEquals("Ana", lista.get(0).nombre());
+        assertEquals("Zoe", lista.get(1).nombre());
+
     }
 
     @Test
     void insertar_correoDuplicado_unique_23505() {
+
         repo.insertar("Ana", "ana@u.edu");
 
-        Throwable ex = catchThrowable(() -> repo.insertar("Otra", "ana@u.edu"));
+        Throwable ex = capturar(() -> repo.insertar("Otra", "ana@u.edu"));
 
-        assertThat(ex).isInstanceOf(DuplicateKeyException.class);
-        assertThat(sqlState(ex)).isEqualTo("23505");
-        assertThat(repo.listar()).hasSize(1);
+        assertTrue(ex instanceof DuplicateKeyException);
+        assertEquals("23505", sqlState(ex));
+        assertEquals(1, repo.listar().size());
+
     }
 
     @Test
     void insertar_correoSinArroba_check_23514() {
-        Throwable ex = catchThrowable(() -> repo.insertar("Ana", "sin-arroba"));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23514");
-        assertThat(repo.listar()).isEmpty();
+        Throwable ex = capturar(() -> repo.insertar("Ana", "sin-arroba"));
+
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23514", sqlState(ex));
+        assertTrue(repo.listar().isEmpty());
+
     }
 
     @Test
     void insertar_nombreNulo_notNull_23502() {
-        Throwable ex = catchThrowable(() -> repo.insertar(null, "ana@u.edu"));
 
-        assertThat(ex).isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(sqlState(ex)).isEqualTo("23502");
+        Throwable ex = capturar(() -> repo.insertar(null, "ana@u.edu"));
+
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23502", sqlState(ex));
+
     }
 }

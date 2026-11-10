@@ -4,76 +4,85 @@ import com.edfinal.domain.Materia;
 import com.edfinal.domain.Profesor;
 import com.edfinal.repository.MateriaRepository;
 import com.edfinal.repository.ProfesorRepository;
+import com.edfinal.support.PostgresTestBase;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import static com.edfinal.support.Excepciones.capturar;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+class CatalogoServicesTest extends PostgresTestBase {
 
-@ExtendWith(MockitoExtension.class)
-class CatalogoServicesTest {
-
-    @Mock
-    private MateriaRepository materiaRepository;
-
-    @Mock
     private ProfesorRepository profesorRepository;
-
-    @InjectMocks
+    private ProfesorService profesorService;
     private MateriaService materiaService;
 
-    @InjectMocks
-    private ProfesorService profesorService;
+    @BeforeEach
+    void setUp() {
+
+        // Arrange
+        profesorRepository = new ProfesorRepository(jdbc);
+        profesorService = new ProfesorService(profesorRepository);
+        materiaService = new MateriaService(new MateriaRepository(jdbc), profesorRepository);
+
+    }
 
     @Test
     @DisplayName("ProfesorService: crear profesor válido")
     void crearProfesor_valido() {
-        Profesor esperado = new Profesor(1, "Alan Turing", "alan@universidad.edu");
-        when(profesorRepository.insertar("Alan Turing", "alan@universidad.edu")).thenReturn(esperado);
 
+        // Act
         Profesor creado = profesorService.crear("Alan Turing", "alan@universidad.edu");
 
-        assertThat(creado).isEqualTo(esperado);
-        verify(profesorRepository).insertar("Alan Turing", "alan@universidad.edu");
+        // Assert
+        assertEquals("Alan Turing", creado.nombre());
+        assertEquals("alan@universidad.edu", creado.correo());
+        assertEquals(creado, profesorRepository.buscarPorId(creado.id()).get());
+
     }
 
     @Test
-    @DisplayName("ProfesorService: rechazar correo sin arroba")
+    @DisplayName("ProfesorService: rechaza un correo sin arroba")
     void crearProfesor_correoInvalido_lanzaExcepcion() {
-        assertThatThrownBy(() -> profesorService.crear("Ada Lovelace", "correo-invalido"))
-                .isInstanceOf(IllegalArgumentException.class);
+
+        // Act
+        Throwable ex = capturar(() -> profesorService.crear("Ada Lovelace", "correo-invalido"));
+
+        // Assert
+        assertTrue(ex instanceof IllegalArgumentException);
+
     }
 
     @Test
     @DisplayName("MateriaService: crear materia con profesor existente")
     void crearMateria_valida() {
-        Profesor prof = new Profesor(5, "Donald Knuth", "knuth@stanford.edu");
-        Materia esperada = new Materia(10, "Algoritmos", 5, "Donald Knuth");
 
-        when(profesorRepository.buscarPorId(5)).thenReturn(Optional.of(prof));
-        when(materiaRepository.insertar("Algoritmos", 5)).thenReturn(esperada);
+        // Arrange
+        Profesor prof = profesorService.crear("Donald Knuth", "knuth@stanford.edu");
 
-        Materia creada = materiaService.crear("Algoritmos", 5);
+        // Act
+        Materia creada = materiaService.crear("Algoritmos", prof.id());
 
-        assertThat(creada).isEqualTo(esperada);
+        // Assert
+        assertEquals("Algoritmos", creada.nombre());
+        assertEquals(prof.id(), creada.profesorId());
+        assertEquals("Donald Knuth", creada.profesor());
+
     }
 
     @Test
-    @DisplayName("MateriaService: crear materia con profesor inexistente lanza NoSuchElementException")
+    @DisplayName("MateriaService: profesor inexistente lanza NoSuchElementException")
     void crearMateria_profesorInexistente_lanzaExcepcion() {
-        when(profesorRepository.buscarPorId(99)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> materiaService.crear("Bases de Datos", 99))
-                .isInstanceOf(NoSuchElementException.class);
+        // Act
+        Throwable ex = capturar(() -> materiaService.crear("Bases de Datos", 99999));
+
+        // Assert
+        assertTrue(ex instanceof java.util.NoSuchElementException);
+
     }
+
 }

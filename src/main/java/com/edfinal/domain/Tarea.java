@@ -1,13 +1,11 @@
 package com.edfinal.domain;
 
+import com.edfinal.structures.IIdentificable;
+
 import java.time.LocalDateTime;
 
-/**
- * Tarea académica (modelo de dominio, inmutable).
- * El orden de los componentes coincide con el JSON de salida de la API.
- * materiaId y materia (nombre) los resuelve el repositorio con un JOIN;
- * prioridad es el nivel 1..5 (igual al id de tipos_prioridad).
- */
+// Tarea académica. El orden de los componentes coincide con el JSON de salida de la API
+// prioridad es el nivel de 1 a 5 (igual al id de tipos_prioridad)
 public record Tarea(
         String id,
         String titulo,
@@ -16,20 +14,35 @@ public record Tarea(
         int prioridad,
         LocalDateTime fechaLimite,
         EstadoTarea estado
-) implements Comparable<Tarea> {
+) implements Comparable<Tarea>, IIdentificable {
 
-    /** "Mayor" = más urgente: mayor prioridad; en empate, fecha límite más cercana. */
+    // "Mayor" = más urgente: mayor prioridad y, en empate, fecha límite más cercana
     @Override
     public int compareTo(Tarea otra) {
-        int porPrioridad = Integer.compare(this.prioridad, otra.prioridad);
-        if (porPrioridad != 0) {
-            return porPrioridad;
+
+        int resultado = 0;
+
+        resultado = Integer.compare(this.prioridad, otra.prioridad);
+        if (resultado != 0) {
+            return resultado;
         }
-        // fecha más cercana => más urgente => debe resultar "mayor"
+
+        // La fecha más cercana es más urgente, por eso se compara al revés
         return otra.fechaLimite.compareTo(this.fechaLimite);
+
+    }
+
+    @Override
+    public String getId() {
+
+        return id;
+
     }
 
     public Tarea conEstado(EstadoTarea nuevoEstado) {
+
         return new Tarea(id, titulo, materiaId, materia, prioridad, fechaLimite, nuevoEstado);
+
     }
+
 }

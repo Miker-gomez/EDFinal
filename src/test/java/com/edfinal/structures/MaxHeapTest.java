@@ -2,166 +2,257 @@ package com.edfinal.structures;
 
 import com.edfinal.domain.EstadoTarea;
 import com.edfinal.domain.Tarea;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static com.edfinal.support.Excepciones.capturar;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MaxHeapTest {
 
-    record Item(int id, int p) implements Comparable<Item> {
+    // Elemento de prueba: la prioridad manda y el id ubica el elemento
+    record Item(int id, int p) implements Comparable<Item>, IIdentificable {
+
         @Override
         public int compareTo(Item o) {
+
             return Integer.compare(p, o.p);
+
         }
+
+        @Override
+        public String getId() {
+
+            return String.valueOf(id);
+
+        }
+
     }
 
-private static Tarea tarea(String id, int prioridad, String fecha) {
-    return new Tarea(id, "T-" + id, 1, "Materia", prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
-}
+    private static Tarea tarea(String id, int prioridad, String fecha) {
 
-    // ---------- Casos límite ----------
+        return new Tarea(id, "T-" + id, 1, "Materia", prioridad, LocalDateTime.parse(fecha), EstadoTarea.PENDIENTE);
 
-    @Test
-    void heapVacio_peekYExtractDevuelvenVacio() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
-        assertThat(heap.isEmpty()).isTrue();
-        assertThat(heap.size()).isZero();
-        assertThat(heap.peekMax()).isEmpty();
-        assertThat(heap.extractMax()).isEmpty();
     }
 
     @Test
+    @DisplayName("heap vacío: peekMax y extractMax devuelven null")
+    void heapVacio_peekYExtractDevuelvenNull() {
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
+
+        // Assert
+        assertTrue(heap.isEmpty());
+        assertEquals(0, heap.size());
+        assertEquals(null, heap.peekMax());
+        assertEquals(null, heap.extractMax());
+
+    }
+
+    @Test
+    @DisplayName("un solo elemento")
     void unSoloElemento() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
-        heap.insert(7);
-        assertThat(heap.peekMax()).contains(7);
-        assertThat(heap.extractMax()).contains(7);
-        assertThat(heap.isEmpty()).isTrue();
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
+        Item unico = new Item(1, 7);
+
+        // Act
+        heap.insert(unico);
+
+        // Assert
+        assertEquals(unico, heap.peekMax());
+        assertEquals(unico, heap.extractMax());
+        assertTrue(heap.isEmpty());
+
     }
 
     @Test
+    @DisplayName("insertar null lanza NullPointerException")
     void insertarNull_lanzaExcepcion() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
-        assertThatThrownBy(() -> heap.insert(null)).isInstanceOf(NullPointerException.class);
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
+
+        // Act
+        Throwable ex = capturar(() -> heap.insert(null));
+
+        // Assert
+        assertTrue(ex instanceof NullPointerException);
+
     }
 
-    // ---------- Orden y propiedad de montículo ----------
-
     @Test
+    @DisplayName("inserción desordenada, extracción descendente")
     void insercionDesordenada_extraccionDescendente() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
         int[] entrada = {5, 1, 9, 3, 7, 2, 8, 6, 4, 10};
+
+        // Act
         for (int n : entrada) {
-            heap.insert(n);
-            assertThat(heap.isValidHeap()).isTrue();
+
+            heap.insert(new Item(n, n));
+            assertTrue(heap.isValidHeap());
+
         }
         List<Integer> salida = new ArrayList<>();
         while (!heap.isEmpty()) {
-            salida.add(heap.extractMax().orElseThrow());
-            assertThat(heap.isValidHeap()).isTrue();
+
+            salida.add(heap.extractMax().p());
+            assertTrue(heap.isValidHeap());
+
         }
-        assertThat(salida).containsExactly(10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
+
+        // Assert
+        assertEquals(List.of(10, 9, 8, 7, 6, 5, 4, 3, 2, 1), salida);
+
     }
 
     @Test
+    @DisplayName("prioridades empatadas: se extraen todas")
     void prioridadesEmpatadas_seExtraenTodas() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
         for (int i = 0; i < 5; i++) {
-            heap.insert(3);
+
+            heap.insert(new Item(i, 3));
+
         }
+
+        // Act y Assert
         for (int i = 0; i < 5; i++) {
-            assertThat(heap.extractMax()).contains(3);
+
+            assertEquals(3, heap.extractMax().p());
+
         }
-        assertThat(heap.isEmpty()).isTrue();
+        assertTrue(heap.isEmpty());
+
     }
 
     @Test
-    void redimensionamiento_superaCapacidadInicial() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
+    @DisplayName("crece más allá de 1000 elementos y conserva el orden")
+    void crecimiento_variosElementos() {
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
+
+        // Act
         for (int i = 0; i < 1000; i++) {
-            heap.insert(i);
+
+            heap.insert(new Item(i, i));
+
         }
-        assertThat(heap.size()).isEqualTo(1000);
-        assertThat(heap.isValidHeap()).isTrue();
-        assertThat(heap.peekMax()).contains(999);
+
+        // Assert
+        assertEquals(1000, heap.size());
+        assertTrue(heap.isValidHeap());
+        assertEquals(999, heap.peekMax().p());
         for (int esperado = 999; esperado >= 0; esperado--) {
-            assertThat(heap.extractMax()).contains(esperado);
+
+            assertEquals(esperado, heap.extractMax().p());
+
         }
+
     }
 
-    // ---------- Remoción por clave ----------
-
     @Test
+    @DisplayName("remove: raíz, medio, hoja y id inexistente")
     void remove_raiz_medio_ultimo_yClaveInexistente() {
-        MaxHeap<Item> heap = new MaxHeap<>(Item::id);
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
         for (int i = 1; i <= 10; i++) {
+
             heap.insert(new Item(i, i * 10));
+
         }
-        assertThat(heap.remove(10)).isPresent();   // raíz
-        assertThat(heap.remove(5)).isPresent();    // arbitraria
-        assertThat(heap.remove(1)).isPresent();    // hoja
-        assertThat(heap.remove(999)).isEmpty();    // no existe
-        assertThat(heap.size()).isEqualTo(7);
-        assertThat(heap.isValidHeap()).isTrue();
-        assertThat(heap.contains(5)).isFalse();
-        assertThat(heap.peekMax().orElseThrow().id()).isEqualTo(9);
+
+        // Act y Assert
+        assertEquals(10, heap.remove("10").id());
+        assertEquals(5, heap.remove("5").id());
+        assertEquals(1, heap.remove("1").id());
+        assertEquals(null, heap.remove("999"));
+        assertEquals(7, heap.size());
+        assertTrue(heap.isValidHeap());
+        assertFalse(heap.contains("5"));
+        assertEquals(9, heap.peekMax().id());
+
     }
 
     @Test
-    void remove_aleatorio_conservaPropiedadYOrden() {
-        Random rnd = new Random(42);
-        MaxHeap<Item> heap = new MaxHeap<>(Item::id);
-        for (int i = 0; i < 200; i++) {
-            heap.insert(new Item(i, rnd.nextInt(50)));
-        }
-        List<Integer> ids = new ArrayList<>();
-        for (int i = 0; i < 200; i++) ids.add(i);
-        java.util.Collections.shuffle(ids, rnd);
+    @DisplayName("remove de varios ids conserva la propiedad y el orden")
+    void remove_variosIds_conservaPropiedadYOrden() {
 
-        for (int k = 0; k < 80; k++) {
-            assertThat(heap.remove(ids.get(k))).isPresent();
-            assertThat(heap.isValidHeap()).isTrue();
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
+        for (int i = 0; i < 200; i++) {
+
+            heap.insert(new Item(i, (i * 37) % 50));
+
         }
+
+        // Act
+        for (int k = 0; k < 200; k += 3) {
+
+            assertEquals(k, heap.remove(String.valueOf(k)).id());
+            assertTrue(heap.isValidHeap());
+
+        }
+
+        // Assert
         int anterior = Integer.MAX_VALUE;
         while (!heap.isEmpty()) {
-            int p = heap.extractMax().orElseThrow().p();
-            assertThat(p).isLessThanOrEqualTo(anterior);
+
+            int p = heap.extractMax().p();
+            assertTrue(p <= anterior);
             anterior = p;
+
         }
+
     }
 
     @Test
+    @DisplayName("insertar un id duplicado lanza IllegalArgumentException")
     void insertarClaveDuplicada_lanzaExcepcion() {
-        MaxHeap<Item> heap = new MaxHeap<>(Item::id);
+
+        // Arrange
+        MaxHeap<Item> heap = new MaxHeap<>();
         heap.insert(new Item(1, 5));
-        assertThatThrownBy(() -> heap.insert(new Item(1, 9)))
-                .isInstanceOf(IllegalArgumentException.class);
+
+        // Act
+        Throwable ex = capturar(() -> heap.insert(new Item(1, 9)));
+
+        // Assert
+        assertTrue(ex instanceof IllegalArgumentException);
+
     }
 
     @Test
-    void removeSinKeyExtractor_lanzaExcepcion() {
-        MaxHeap<Integer> heap = new MaxHeap<>();
-        heap.insert(1);
-        assertThatThrownBy(() -> heap.remove(1)).isInstanceOf(UnsupportedOperationException.class);
-    }
-
-    // ---------- Integración con Tarea (criterio de F02) ----------
-
-    @Test
+    @DisplayName("tareas: gana la mayor prioridad y, en empate, la fecha más cercana")
     void tareas_mayorPrioridadGana_yEnEmpateLaFechaMasCercana() {
-        MaxHeap<Tarea> heap = new MaxHeap<>(Tarea::id);
+
+        // Arrange
+        MaxHeap<Tarea> heap = new MaxHeap<>();
         heap.insert(tarea("a", 3, "2026-12-01T09:00"));
         heap.insert(tarea("b", 5, "2026-12-20T09:00"));
-        heap.insert(tarea("c", 5, "2026-12-10T09:00")); // empate con b, fecha más cercana
+        heap.insert(tarea("c", 5, "2026-12-10T09:00"));
 
-        assertThat(heap.extractMax().orElseThrow().id()).isEqualTo("c");
-        assertThat(heap.extractMax().orElseThrow().id()).isEqualTo("b");
-        assertThat(heap.extractMax().orElseThrow().id()).isEqualTo("a");
+        // Act y Assert
+        assertEquals("c", heap.extractMax().id());
+        assertEquals("b", heap.extractMax().id());
+        assertEquals("a", heap.extractMax().id());
+
     }
+
 }
