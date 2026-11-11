@@ -13,6 +13,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -63,6 +64,13 @@ public class ManejadorErrores {
 
     }
 
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> alUsarTipoDeContenidoNoSoportado(HttpMediaTypeNotSupportedException ex) {
+
+        return responder(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "El tipo de contenido debe ser application/json");
+
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> alRecibirDatosInvalidos(IllegalArgumentException ex) {
 
@@ -84,7 +92,7 @@ public class ManejadorErrores {
 
     }
 
-    // 23505 y 23503 -> 409; 23514 y 23502 -> 400; cualquier otro -> 500 genérico
+    // 23505 y 23503 -> 409; 23514, 23502 y la clase 22 (valor o tamaño no válido) -> 400; cualquier otro -> 500 genérico
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ErrorResponse> alAccederADatos(DataAccessException ex) {
 
@@ -97,6 +105,9 @@ public class ManejadorErrores {
         }
         if ("23514".equals(sqlState) || "23502".equals(sqlState)) {
             return responder(HttpStatus.BAD_REQUEST, "Los datos no cumplen las restricciones");
+        }
+        if (sqlState != null && sqlState.startsWith("22")) {
+            return responder(HttpStatus.BAD_REQUEST, "Los datos tienen un valor o un tamaño no válido");
         }
         log.error("Error de acceso a datos (SQLState {})", sqlState, ex);
         return responder(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");

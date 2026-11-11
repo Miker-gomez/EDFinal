@@ -31,6 +31,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
     }
 
+    // La raíz es siempre la tarea más urgente: se lee sin modificar nada, O(1)
     // Devuelve null si el montículo está vacío
     public T peekMax() {
 
@@ -109,6 +110,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
     }
 
+    // Sube el elemento mientras sea mayor que su padre, a lo sumo la altura del árbol: O(log n)
     private void heapifyUp(int i) {
 
         while (i > 0) {
@@ -124,6 +126,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
     }
 
+    // Baja el elemento intercambiándolo con el mayor de sus hijos hasta que ninguno lo supere: O(log n)
     private void heapifyDown(int i) {
 
         while (true) {
@@ -147,6 +150,7 @@ public class MaxHeap<T extends Comparable<T> & IIdentificable> {
 
     }
 
+    // Intercambia dos posiciones y actualiza el mapa id -> posición de ambas
     private void swap(int i, int j) {
 
         T tmp = data.get(i);

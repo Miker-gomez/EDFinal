@@ -12,17 +12,17 @@
 
 1. **`AccionDeshacer` (`com.edfinal.service`):**
    - Record inmutable que almacena el tipo de acción (`COMPLETAR`, `MODIFICAR`) y la instantánea previa (`Tarea tareaPrevia`) antes de la mutación.
-   - Es el elemento que alimenta la pila `ArrayDeque` para permitir reversiones atómicas.
+   - Es el elemento que alimenta la pila `Stack` para permitir reversiones atómicas.
 
 2. **`TareaService` (`com.edfinal.service`):**
    - Orquestador del núcleo del proyecto. Conecta PostgreSQL con las 3 estructuras de datos en memoria:
      - **`MaxHeap<Tarea>` (propio):** Consulta de la tarea más urgente en $O(1)$ (`peekMax()`) y remoción/inserción en $O(\log n)$.
      - **`Map<String, Tarea>` (`HashMap`):** Búsqueda instantánea de tareas activas por UUID en $O(1)$.
-     - **`Deque<AccionDeshacer>` (`ArrayDeque`):** Pila de deshacer con comportamiento LIFO en $O(1)$.
+     - **`Stack<AccionDeshacer>`:** Pila de deshacer con comportamiento LIFO en $O(1)$.
    - **Inicialización:** Carga automática al arrancar (`@PostConstruct`) de tareas activas (`PENDIENTE` y `VENCIDA`) desde PostgreSQL.
    - **Concurrencia:** Protección de todas las mutaciones y consultas en memoria mediante `ReentrantReadWriteLock`.
    - **Reglas de negocio integradas:**
-     - Al completar una tarea: se actualiza en BD a `COMPLETADA`, se remueve del heap y del hashmap, y se apila en `ArrayDeque`.
+     - Al completar una tarea: se actualiza en BD a `COMPLETADA`, se remueve del heap y del hashmap, y se apila en `Stack`.
      - Al deshacer: se desapila la acción, se restaura en PostgreSQL al estado previo y se reinserta en heap y hashmap.
      - Al modificar plazo (F09): si una tarea estaba `VENCIDA` y se le asigna fecha futura, pasa automáticamente a `PENDIENTE`.
      - Sincronización de vencidas: invoca el procedimiento `sp_marcar_vencidas` y actualiza las instancias en memoria.
@@ -31,7 +31,7 @@
    - Lógica de negocio y validaciones de formato/integridad para los catálogos de profesores y materias.
 
 4. **Pruebas Unitarias:**
-   - `TareaServiceTest`: 10 pruebas unitarias con Mockito y AssertJ cubriendo inicialización, urgencia, validación de fechas pasadas, completar, deshacer, modificación con cambio de estado y sincronización de vencidas.
+   - `TareaServiceTest`: pruebas de integración con PostgreSQL (Testcontainers) y JUnit cubriendo inicialización, urgencia, validación de fechas pasadas, completar, deshacer, modificación con cambio de estado y sincronización de vencidas.
    - `CatalogoServicesTest`: Pruebas de inserción y validación de relaciones profesor-materia.
 
 ---

@@ -10,7 +10,7 @@ Integrantes: Juan Vélez, Miker Gómez y Edward Molina.
 - PostgreSQL 16 con rutinas PL/pgSQL (procedimientos almacenados y triggers).
 - Frontend estático: HTML5, JavaScript (Fetch API) y Bootstrap 5.3.8 como WebJar; sin Node.js.
 - Docker y Docker Compose para la base de datos y la aplicación.
-- Pruebas: JUnit 5, AssertJ y Testcontainers (PostgreSQL 16).
+- Pruebas: JUnit 5 y Testcontainers (PostgreSQL 16).
 
 ## Arquitectura
 
@@ -22,7 +22,7 @@ PostgreSQL es la fuente de verdad. Las tareas activas (PENDIENTE y VENCIDA) tamb
 
 - **Max-Heap propio** (`MaxHeap`): tarea más urgente en O(1); insertar y remover en O(log n).
 - **HashMap**: búsqueda por ID en O(1).
-- **Pila (`ArrayDeque`)**: deshacer la última acción de completar o eliminar en O(1).
+- **Pila (`Stack`)**: deshacer la última acción de completar o eliminar en O(1).
 
 ## Estructura del repositorio
 
@@ -60,7 +60,7 @@ docker-compose.yml
    docker compose up --build
    ```
 
-   El dashboard queda en <http://localhost:8080>. La primera construcción tarda varios minutos (imágenes base y dependencias de Gradle); las siguientes usan caché. Tras `up`, espera unos segundos antes de abrirlo.
+   El dashboard queda en <http://localhost:8080> (o en el puerto que pongas en `APP_PORT` de `.env`, si el 8080 está ocupado). La primera construcción tarda varios minutos (imágenes base y dependencias de Gradle); las siguientes usan caché. Tras `up`, espera unos segundos antes de abrirlo.
 
 Los scripts de `db/init/` solo se ejecutan cuando el volumen está vacío. Para reaplicarlos tras cambiar el esquema:
 
@@ -69,6 +69,18 @@ docker compose down -v
 ```
 
 Un `docker compose down` sin `-v` conserva los datos.
+
+El `Dockerfile` usa `RUN --mount=type=cache`, que exige BuildKit: con Docker Desktop viene incluido; con Colima o Docker Engine solo hace falta tener instalado el plugin `docker buildx`.
+
+### Pruebas
+
+Las pruebas de integración levantan PostgreSQL 16 con Testcontainers, así que necesitan Docker en marcha:
+
+```powershell
+.\gradlew.bat test
+```
+
+Con Colima en macOS hay que exportar antes `DOCKER_HOST` y `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
 
 ### Desarrollo desde el IDE
 
@@ -94,9 +106,10 @@ El avance del proyecto se gestiona de forma modular por fases:
   - Implementación de `TareaService` con orquestación en memoria de las 3 estructuras:
     - `MaxHeap<Tarea>`: tarea más urgente en O(1).
     - `HashMap<String, Tarea>`: búsqueda por ID en O(1).
-    - `Deque<AccionDeshacer>` (`ArrayDeque`): pila LIFO para deshacer acciones de completar o modificar en O(1).
+    - `Stack<AccionDeshacer>`: pila LIFO para deshacer acciones de completar o eliminar en O(1).
   - Control de concurrencia mediante `ReentrantReadWriteLock`.
   - Servicios de catálogo `MateriaService` y `ProfesorService`.
-  - Suite de pruebas unitarias en `TareaServiceTest` y `CatalogoServicesTest`.
-- **Fase 4 – API REST y Controladores (Siguiente):** Endpoints REST (`TareaController`, `MateriaController`, `ProfesorController`), DTOs con Bean Validation y `GlobalExceptionHandler`.
-- **Fase 5 – Frontend Dashboard:** Interfaz interactiva HTML5/Bootstrap con consumo de API mediante Fetch API.
+  - Suite de pruebas de integración en `TareaServiceTest` y `CatalogoServicesTest` (contra PostgreSQL con Testcontainers).
+- **Fase 4 – API REST y Controladores (Completada):** Endpoints REST (`TareaController`, `MateriaController`, `ProfesorController`, `EstadisticaController`), DTOs con Bean Validation y manejo global de errores (`ManejadorErrores`).
+- **Fase 5 – Frontend Dashboard (Completada):** Interfaz HTML5/Bootstrap con consumo de la API mediante Fetch API.
+- **Fase 6 – Calidad, integración y sustentación (Completada):** matriz de verificación, arranque desde cero con Docker Compose, persistencia tras reinicio y revisión final.

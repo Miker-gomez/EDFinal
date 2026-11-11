@@ -331,4 +331,25 @@ class TareaServiceTest extends PostgresTestBase {
 
     }
 
+    @Test
+    @DisplayName("Tras un reinicio, una instancia nueva reconstruye el heap y el mapa y deja la pila vacía")
+    void reinicio_nuevaInstancia_reconstruyeHeapYMapaYVaciaLaPila() {
+
+        // Arrange
+        Tarea critica = service.crearTarea("Parcial", materiaId, 5, LocalDateTime.now().plusDays(2));
+        service.crearTarea("Taller", materiaId, 2, LocalDateTime.now().plusDays(1));
+        Tarea completada = service.crearTarea("Quiz", materiaId, 3, LocalDateTime.now().plusDays(3));
+        service.completarTarea(completada.id());
+
+        // Act
+        TareaService reiniciado = new TareaService(tareaRepository, new MateriaRepository(jdbc));
+        reiniciado.inicializar();
+
+        // Assert
+        assertEquals(2, reiniciado.cantidadTareasEnHeap());
+        assertEquals(critica.id(), reiniciado.obtenerMasUrgente().orElseThrow().id());
+        assertTrue(reiniciado.buscarPorId(completada.id()).isEmpty());
+        assertEquals(0, reiniciado.tamanoPilaDeshacer());
+
+    }
 }

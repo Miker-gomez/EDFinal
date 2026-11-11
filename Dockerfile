@@ -16,7 +16,8 @@ RUN --mount=type=cache,target=/root/.gradle \
 # ---------- Etapa 2: ejecutar en JRE 21 ----------
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
-RUN useradd --system --no-create-home spring
+RUN useradd --system --no-create-home spring \
+ && mkdir /app/logs && chown spring /app/logs
 COPY --from=build /workspace/app.jar /app/app.jar
 USER spring
 

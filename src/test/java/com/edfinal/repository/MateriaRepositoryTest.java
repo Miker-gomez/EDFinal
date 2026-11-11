@@ -4,6 +4,7 @@ import com.edfinal.domain.Materia;
 import com.edfinal.domain.Profesor;
 import com.edfinal.support.PostgresTestBase;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -21,6 +22,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     private final MateriaRepository repo = new MateriaRepository(jdbc);
 
     @Test
+    @DisplayName("Insertar devuelve la materia con el nombre del profesor")
     void insertar_devuelveMateriaConNombreDelProfesor() {
 
         Profesor p = profesores.insertar("Ana Gómez", "ana@u.edu");
@@ -36,6 +38,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar con un profesor inexistente falla por llave foránea (23503)")
     void insertar_profesorInexistente_fk_23503() {
 
         Throwable ex = capturar(() -> repo.insertar("EDA", 99999));
@@ -47,6 +50,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar un par nombre-profesor repetido falla por UNIQUE (23505)")
     void insertar_parNombreProfesorRepetido_unique_23505() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -60,6 +64,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El mismo nombre de materia con otro profesor se permite")
     void insertar_mismoNombreConOtroProfesor_esPermitido() {
 
         Profesor p1 = profesores.insertar("Ana", "ana@u.edu");
@@ -73,6 +78,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Listar ordena las materias por nombre")
     void listar_ordenaPorNombre() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -86,6 +92,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Buscar un id inexistente devuelve vacío")
     void buscarPorId_inexistente_devuelveVacio() {
 
         assertTrue(repo.buscarPorId(99999).isEmpty());
@@ -93,6 +100,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar cambia el nombre y el profesor")
     void actualizar_cambiaNombreYProfesor() {
 
         Profesor p1 = profesores.insertar("Ana", "ana@u.edu");
@@ -106,6 +114,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar un id inexistente devuelve false")
     void actualizar_inexistente_devuelveFalse() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -115,6 +124,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar con un profesor inexistente falla por llave foránea (23503)")
     void actualizar_profesorInexistente_fk_23503() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -129,6 +139,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar a un par existente falla por UNIQUE (23505)")
     void actualizar_aParExistente_unique_23505() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -143,6 +154,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Eliminar una materia existente devuelve true y desaparece")
     void eliminar_existente_devuelveTrueYDesaparece() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
@@ -155,6 +167,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Eliminar un id inexistente devuelve false")
     void eliminar_inexistente_devuelveFalse() {
 
         assertFalse(repo.eliminar(99999));
@@ -162,6 +175,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Eliminar una materia con tareas falla por RESTRICT y permanece (23503)")
     void eliminar_conTareasAsociadas_restrict_23503_yPermanece() {
 
         int materiaId = crearMateria("EDA");
@@ -177,6 +191,7 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Un profesor con materias no se puede borrar por RESTRICT (23503)")
     void profesorConMaterias_noSePuedeBorrar_restrict_23503() {
 
         Profesor p = profesores.insertar("Ana", "ana@u.edu");
