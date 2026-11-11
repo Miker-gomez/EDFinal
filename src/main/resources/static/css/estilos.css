@@ -15,3 +15,26 @@
   min-width: 44px;
   margin-bottom: 0.25rem;
 }
+
+/* En pantallas angostas: sin materia y con botones apilados */
+@media (max-width: 575.98px) {
+  #tablaTareas .columna-materia {
+    display: none;
+  }
+
+  #tablaTareas .acciones {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #tablaTareas {
+    font-size: 0.85rem;
+  }
+
+  #tablaTareas .acciones .btn {
+    margin-right: 0;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+    font-size: 0.8rem;
+  }
+}

@@ -7,8 +7,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      TZ: ${TZ}
-    command: ["postgres", "-c", "timezone=${TZ}", "-c", "log_timezone=${TZ}"]
+      TZ: ${TZ:-America/Bogota}
+    command: ["postgres", "-c", "timezone=${TZ:-America/Bogota}", "-c", "log_timezone=${TZ:-America/Bogota}"]
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -31,7 +31,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      TZ: ${TZ}
+      TZ: ${TZ:-America/Bogota}
     ports:
       - "${APP_PORT:-8080}:8080"
 

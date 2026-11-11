@@ -157,7 +157,7 @@ function crearFilaTarea(tarea) {
 
   const fila = crear('tr', null, tarea.estado === 'VENCIDA' ? 'fila-vencida' : '');
   fila.appendChild(crear('td', tarea.titulo));
-  fila.appendChild(crear('td', tarea.materia));
+  fila.appendChild(crear('td', tarea.materia, 'columna-materia'));
   fila.appendChild(crear('td', tarea.prioridad));
   fila.appendChild(crear('td', formatearFecha(tarea.fechaLimite)));
 
