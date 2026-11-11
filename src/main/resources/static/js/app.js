@@ -407,6 +407,7 @@ async function guardarEdicion(evento) {
     await refrescar();
   } catch (error) {
     mostrarError(error);
+    await refrescar();
   }
 
 }

@@ -5,6 +5,7 @@ import com.edfinal.domain.Tarea;
 import com.edfinal.support.PostgresTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -35,6 +36,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     // ---------- insertar / buscar ----------
 
     @Test
+    @DisplayName("Insertar y buscar por id devuelve la misma tarea")
     void insertarYBuscarPorId_roundTrip() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(5));
@@ -46,6 +48,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar con fecha pasada falla por el trigger de plazo y no guarda (23514)")
     void insertar_fechaPasada_triggerDePlazo_23514_yNoGuarda() {
 
         Tarea pasada = tarea(materiaId, "EDA", 3, enDias(-1));
@@ -59,6 +62,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar con una materia inexistente falla por llave foránea (23503)")
     void insertar_materiaInexistente_fk_23503() {
 
         Tarea t = tarea(99999, "X", 3, enDias(2));
@@ -72,6 +76,7 @@ class TareaRepositoryTest extends PostgresTestBase {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 6})
+    @DisplayName("Insertar con una prioridad fuera de rango falla por llave foránea (23503)")
     void insertar_prioridadFueraDeRango_fk_23503(int prioridad) {
 
         Tarea t = tarea(materiaId, "EDA", prioridad, enDias(2));
@@ -84,6 +89,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar con el título en blanco falla por CHECK (23514)")
     void insertar_tituloEnBlanco_check_23514() {
 
         Tarea t = new Tarea(UUID.randomUUID().toString(), "   ", materiaId, "EDA",
@@ -97,6 +103,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar con el título nulo falla por NOT NULL (23502)")
     void insertar_tituloNulo_notNull_23502() {
 
         Tarea t = new Tarea(UUID.randomUUID().toString(), null, materiaId, "EDA",
@@ -110,6 +117,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar un id duplicado falla por llave primaria (23505)")
     void insertar_idDuplicado_pk_23505() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(2));
@@ -123,6 +131,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Buscar un id inexistente devuelve vacío")
     void buscarPorId_inexistente_devuelveVacio() {
 
         assertTrue(repo.buscarPorId(UUID.randomUUID().toString()).isEmpty());
@@ -130,6 +139,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Buscar por id también devuelve una tarea completada")
     void buscarPorId_completada_tambienLaDevuelve() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(5));
@@ -143,6 +153,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     // ---------- listarActivas ----------
 
     @Test
+    @DisplayName("Listar activas incluye PENDIENTE y VENCIDA y excluye COMPLETADA")
     void listarActivas_incluyePendienteYVencida_excluyeCompletada() {
 
         Tarea a = tarea(materiaId, "EDA", 3, enDias(5));
@@ -162,6 +173,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     // ---------- actualizarEstado ----------
 
     @Test
+    @DisplayName("Actualizar el estado cambia y restaura la tarea")
     void actualizarEstado_cambiaYRestaura() {
 
         Tarea t = tarea(materiaId, "EDA", 4, enDias(5));
@@ -175,6 +187,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar el estado de un id inexistente devuelve false")
     void actualizarEstado_idInexistente_devuelveFalse() {
 
         assertFalse(repo.actualizarEstado(UUID.randomUUID().toString(), EstadoTarea.COMPLETADA));
@@ -184,6 +197,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     // ---------- actualizar (F09) ----------
 
     @Test
+    @DisplayName("Actualizar cambia los cuatro campos editables")
     void actualizar_cambiaLosCuatroCamposEditables() {
 
         Tarea t = tarea(materiaId, "EDA", 2, enDias(5));
@@ -199,6 +213,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar un id inexistente devuelve false")
     void actualizar_idInexistente_devuelveFalse() {
 
         assertFalse(repo.actualizar(tarea(materiaId, "EDA", 3, enDias(2))));
@@ -206,6 +221,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar con una materia inexistente falla por llave foránea y no cambia nada (23503)")
     void actualizar_materiaInexistente_fk_23503_yNoCambiaNada() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(5));
@@ -221,6 +237,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar una VENCIDA con fecha nueva la pasa a PENDIENTE y audita")
     void actualizar_vencidaConFechaNueva_vuelveAPendiente_yAudita() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(5));
@@ -238,6 +255,7 @@ class TareaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Actualizar sin cambio de estado no genera auditoría")
     void actualizar_sinCambioDeEstado_noGeneraAuditoria() {
 
         Tarea t = tarea(materiaId, "EDA", 3, enDias(5));

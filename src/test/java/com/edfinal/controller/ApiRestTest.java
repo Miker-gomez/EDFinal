@@ -415,6 +415,45 @@ class ApiRestTest extends PostgresTestBase {
 
     }
 
+    // ---------- entradas hostiles (revisión adversarial de la Fase 6) ----------
+
+    @Test
+    @DisplayName("Nombres demasiado largos, fechas absurdas, NUL en el título y Content-Type erróneo no producen 500")
+    void entradasHostiles_responden4xx_yNoGuardanNada() throws Exception {
+
+        // Arrange
+        String largo = "a".repeat(101);
+        String correoLargo = "a".repeat(115) + "@u.edu";
+        int profesorId = crearProfesor("hostil@test.com");
+
+        // Act
+        MockHttpServletResponse profesorLargo = enviar("POST", "/api/profesores",
+                "{\"nombre\":\"" + largo + "\",\"correo\":\"largo@u.edu\"}");
+        MockHttpServletResponse correoMuyLargo = enviar("POST", "/api/profesores",
+                "{\"nombre\":\"Ada\",\"correo\":\"" + correoLargo + "\"}");
+        MockHttpServletResponse materiaLarga = enviar("POST", "/api/materias", cuerpoMateria(largo, profesorId));
+        MockHttpServletResponse fechaAbsurda = enviar("POST", "/api/tareas",
+                "{\"titulo\":\"Taller\",\"materiaId\":" + materiaId + ",\"prioridad\":3,\"fechaLimite\":\"+999999999-01-01T00:00:00\"}");
+        MockHttpServletResponse tituloConNul = enviar("POST", "/api/tareas",
+                "{\"titulo\":\"Ta\\u0000ller\",\"materiaId\":" + materiaId + ",\"prioridad\":3,\"fechaLimite\":\"" + fecha(5) + "\"}");
+        MockHttpServletResponse nombreConNul = enviar("POST", "/api/materias",
+                "{\"nombre\":\"Al\\u0000go\",\"profesorId\":" + profesorId + "}");
+        MockHttpServletResponse textoPlano = mockMvc.perform(MockMvcRequestBuilders.post("/api/tareas")
+                .contentType(MediaType.TEXT_PLAIN).content(cuerpoTarea("Taller", materiaId, 3, 5))).andReturn().getResponse();
+
+        // Assert
+        assertEquals(400, profesorLargo.getStatus());
+        assertEquals(400, correoMuyLargo.getStatus());
+        assertEquals(400, materiaLarga.getStatus());
+        assertEquals(400, fechaAbsurda.getStatus());
+        assertEquals(400, tituloConNul.getStatus());
+        assertEquals(400, nombreConNul.getStatus());
+        assertEquals(415, textoPlano.getStatus());
+        assertEquals(415, mapper.readTree(textoPlano.getContentAsString()).get("status").asInt());
+        assertTrue(tareaService.listarActivas().isEmpty());
+
+    }
+
     // ---------- rutas desconocidas ----------
 
     @Test

@@ -15,6 +15,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,6 +31,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @Log4j2
 @Service
 public class TareaService {
+
+    // PostgreSQL no admite fechas más allá del año 294276; se acota a un valor razonable
+    private static final int ANIO_MAXIMO = 9999;
 
     private final TareaRepository tareaRepository;
     private final MateriaRepository materiaRepository;
@@ -52,6 +56,7 @@ public class TareaService {
     public void inicializar() {
 
         recargarDesdeBaseDeDatos();
+        log.info("Estructuras reconstruidas al arrancar. Tareas activas en MaxHeap y HashMap: {}", cantidadTareasEnHeap());
 
     }
 
@@ -135,12 +140,14 @@ public class TareaService {
             throw new IllegalArgumentException("La fecha límite no puede ser anterior al momento actual");
         }
 
-        Materia materia = buscarMateria(materiaId);
-        String id = UUID.randomUUID().toString();
-        Tarea nueva = new Tarea(id, titulo.trim(), materiaId, materia.nombre(), prioridad, fechaLimite, EstadoTarea.PENDIENTE);
-
         lock.writeLock().lock();
         try {
+
+            // La materia se lee dentro del lock para que un renombrado concurrente no deje un nombre viejo en memoria
+            Materia materia = buscarMateria(materiaId);
+            String id = UUID.randomUUID().toString();
+            Tarea nueva = new Tarea(id, titulo.trim(), materiaId, materia.nombre(), prioridad,
+                    fechaLimite.truncatedTo(ChronoUnit.MICROS), EstadoTarea.PENDIENTE);
 
             // Primero la base de datos; si falla, la memoria queda intacta
             tareaRepository.insertar(nueva);
@@ -159,11 +166,12 @@ public class TareaService {
     public Tarea actualizarTarea(String id, String nuevoTitulo, int nuevaMateriaId, int nuevaPrioridad, LocalDateTime nuevaFechaLimite) {
 
         validarDatos(nuevoTitulo, nuevaPrioridad, nuevaFechaLimite);
-        Materia materia = buscarMateria(nuevaMateriaId);
+        LocalDateTime fechaNormalizada = nuevaFechaLimite.truncatedTo(ChronoUnit.MICROS);
 
         lock.writeLock().lock();
         try {
 
+            Materia materia = buscarMateria(nuevaMateriaId);
             Tarea actual = mapaActivas.get(id);
             if (actual == null) {
                 throw new TareaNoEncontradaException("Tarea no encontrada");
@@ -171,9 +179,9 @@ public class TareaService {
 
             // Si la fecha cambia debe ser futura y la tarea vuelve a PENDIENTE
             EstadoTarea nuevoEstado = actual.estado();
-            if (!nuevaFechaLimite.equals(actual.fechaLimite())) {
+            if (!fechaNormalizada.equals(actual.fechaLimite())) {
 
-                if (nuevaFechaLimite.isBefore(LocalDateTime.now())) {
+                if (fechaNormalizada.isBefore(LocalDateTime.now())) {
                     throw new IllegalArgumentException("La fecha límite no puede ser anterior al momento actual");
                 }
                 nuevoEstado = EstadoTarea.PENDIENTE;
@@ -181,7 +189,7 @@ public class TareaService {
             }
 
             Tarea modificada = new Tarea(id, nuevoTitulo.trim(), nuevaMateriaId, materia.nombre(),
-                    nuevaPrioridad, nuevaFechaLimite, nuevoEstado);
+                    nuevaPrioridad, fechaNormalizada, nuevoEstado);
 
             // Primero la base de datos; luego se relee la fila para guardar lo que quedó persistido
             if (!tareaRepository.actualizar(modificada)) {
@@ -237,8 +245,8 @@ public class TareaService {
             heap.remove(restaurada.id());
             heap.insert(restaurada);
             mapaActivas.put(restaurada.id(), restaurada);
-            log.info("Acción {} deshecha. Tarea {} reinsertada en MaxHeap. Tamaño: {}",
-                    accion.tipo(), restaurada.id(), heap.size());
+            log.info("Acción {} deshecha y desapilada. Tarea {} reinsertada en MaxHeap. Tamaño del heap: {}. Tamaño de la pila: {}",
+                    accion.tipo(), restaurada.id(), heap.size(), pilaDeshacer.size());
             return restaurada;
 
         } finally {
@@ -314,7 +322,8 @@ public class TareaService {
             heap.remove(id);
             mapaActivas.remove(id);
             pilaDeshacer.push(new AccionDeshacer(tipo, actual));
-            log.info("Tarea {} retirada del MaxHeap por {}. Nuevo tamaño: {}", id, tipo, heap.size());
+            log.info("Tarea {} retirada del MaxHeap por {} y apilada en deshacer. Tamaño del heap: {}. Tamaño de la pila: {}",
+                    id, tipo, heap.size(), pilaDeshacer.size());
             return actual.conEstado(EstadoTarea.COMPLETADA);
 
         } finally {
@@ -329,6 +338,12 @@ public class TareaService {
         Objects.requireNonNull(fechaLimite, "La fecha límite no puede ser nula");
         if (titulo.trim().isEmpty()) {
             throw new IllegalArgumentException("El título no puede estar vacío");
+        }
+        if (titulo.indexOf('\u0000') >= 0) {
+            throw new IllegalArgumentException("El título contiene caracteres no válidos");
+        }
+        if (fechaLimite.getYear() > ANIO_MAXIMO) {
+            throw new IllegalArgumentException("La fecha límite es demasiado lejana");
         }
         if (prioridad < 1 || prioridad > 5) {
             throw new IllegalArgumentException("La prioridad debe estar entre 1 y 5");

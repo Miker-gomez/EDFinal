@@ -3,6 +3,7 @@ package com.edfinal.repository;
 import com.edfinal.domain.Profesor;
 import com.edfinal.support.PostgresTestBase;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -18,6 +19,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     private final ProfesorRepository repo = new ProfesorRepository(jdbc);
 
     @Test
+    @DisplayName("Insertar devuelve el id generado y persiste")
     void insertar_devuelveIdGeneradoYPersiste() {
 
         Profesor p = repo.insertar("Ana Gómez", "ana@u.edu");
@@ -28,6 +30,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Buscar un id inexistente devuelve vacío")
     void buscarPorId_inexistente_devuelveVacio() {
 
         assertTrue(repo.buscarPorId(99999).isEmpty());
@@ -35,6 +38,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Listar ordena los profesores por nombre")
     void listar_ordenaPorNombre() {
 
         repo.insertar("Zoe", "z@u.edu");
@@ -47,6 +51,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar un correo duplicado falla por UNIQUE (23505)")
     void insertar_correoDuplicado_unique_23505() {
 
         repo.insertar("Ana", "ana@u.edu");
@@ -60,6 +65,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar un correo sin arroba falla por CHECK (23514)")
     void insertar_correoSinArroba_check_23514() {
 
         Throwable ex = capturar(() -> repo.insertar("Ana", "sin-arroba"));
@@ -71,6 +77,7 @@ class ProfesorRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Insertar un nombre nulo falla por NOT NULL (23502)")
     void insertar_nombreNulo_notNull_23502() {
 
         Throwable ex = capturar(() -> repo.insertar(null, "ana@u.edu"));

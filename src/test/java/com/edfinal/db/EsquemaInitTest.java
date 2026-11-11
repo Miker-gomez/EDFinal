@@ -2,6 +2,7 @@ package com.edfinal.db;
 
 import com.edfinal.support.PostgresTestBase;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EsquemaInitTest extends PostgresTestBase {
 
     @Test
+    @DisplayName("Las seis tablas del modelo existen en el esquema")
     void tablas_lasSeisExisten() {
 
         List<String> tablas = jdbc.queryForList("SELECT table_name FROM information_schema.tables " +
@@ -23,6 +25,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Existen los índices de fecha límite y de estado sobre tareas")
     void indices_existenLosDosDeTareas() {
 
         List<String> indices = jdbc.queryForList(
@@ -33,6 +36,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("sp_marcar_vencidas es procedimiento y sp_estadisticas_entrega es función")
     void rutinas_procedimientoYFuncionConSuTipo() {
 
         String marcar = jdbc.queryForObject(
@@ -45,6 +49,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Están definidos el trigger de plazo y el de auditoría")
     void triggers_losDosDefinidos() {
 
         List<String> triggers = jdbc.queryForList(
@@ -55,6 +60,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El catálogo de estados usa los ids del contrato")
     void catalogoEstados_idsDelContrato() {
 
         List<String> estados = jdbc.queryForList("SELECT nombre FROM estado ORDER BY id", String.class);
@@ -63,6 +69,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El id de la prioridad es su nivel y «Crítica» conserva la tilde")
     void catalogoPrioridades_idEsElNivel_yConservaTilde() {
 
         List<Integer> ids = jdbc.queryForList("SELECT id FROM tipos_prioridad ORDER BY id", Integer.class);
@@ -73,6 +80,7 @@ class EsquemaInitTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("La base usa la zona horaria America/Bogota")
     void zonaHoraria_esBogota() {
 
         String tz = jdbc.queryForObject("SHOW timezone", String.class);

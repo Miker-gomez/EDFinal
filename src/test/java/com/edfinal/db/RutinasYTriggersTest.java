@@ -7,6 +7,7 @@ import com.edfinal.repository.TareaRepository;
 import com.edfinal.support.PostgresTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -59,6 +60,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     // ---------- sp_marcar_vencidas (CALL con INOUT desde JdbcTemplate) ----------
 
     @Test
+    @DisplayName("sp_marcar_vencidas marca solo las PENDIENTE expiradas y devuelve la cantidad")
     void marcarVencidas_marcaSoloPendientesExpiradas_yDevuelveLaCantidad() {
 
         Tarea expirada1 = insertar(3, 5);
@@ -94,6 +96,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Una segunda llamada a sp_marcar_vencidas devuelve cero")
     void marcarVencidas_segundaLlamada_devuelveCero() {
 
         Tarea t = insertar(3, 5);
@@ -105,6 +108,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Sin tareas, sp_marcar_vencidas devuelve cero")
     void marcarVencidas_sinTareas_devuelveCero() {
 
         assertEquals(0, repo.marcarVencidas());
@@ -112,6 +116,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Una tarea con plazo corto se marca como vencida al expirar")
     void marcarVencidas_plazoCortoInsertadoDesdeJava_seMarcaAlExpirar() throws InterruptedException {
 
         // Verifica que Java, el trigger de plazo y el procedimiento comparan contra la misma hora (zona).
@@ -128,6 +133,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     // ---------- sp_estadisticas_entrega ----------
 
     @Test
+    @DisplayName("Las estadísticas cuentan por materia y estado e incluyen materias sin tareas")
     void estadisticas_conteoPorMateriaYEstado_incluyeMateriasSinTareas() {
 
         int vacia = crearMateria("Algebra");
@@ -146,6 +152,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     // ---------- trg_tareas_validar_plazo ----------
 
     @Test
+    @DisplayName("El trigger de plazo rechaza por SQL una fecha pasada (23514)")
     void triggerPlazo_insertSqlConFechaPasada_rechaza_23514() {
 
         Throwable ex = capturar(() -> jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite) " +
@@ -158,6 +165,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El trigger de plazo no bloquea los UPDATE, así deshacer no se afecta")
     void triggerPlazo_noBloqueaUpdates_asiElUndoNoSeVeAfectado() {
 
         Tarea t = insertar(3, 5);
@@ -171,6 +179,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     // ---------- trg_tareas_auditar_estado ----------
 
     @Test
+    @DisplayName("El trigger de auditoría registra estado anterior, nuevo y fecha")
     void triggerAuditoria_registraEstadoAnteriorNuevoYFecha() {
 
         Tarea t = insertar(3, 5);
@@ -186,6 +195,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El trigger de auditoría registra cada transición en orden")
     void triggerAuditoria_registraCadaTransicion_enOrden() {
 
         Tarea t = insertar(3, 5);
@@ -201,6 +211,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("El trigger de auditoría no se dispara si el estado no cambia")
     void triggerAuditoria_noDisparaSiElEstadoNoCambia() {
 
         Tarea t = insertar(3, 5);
@@ -213,6 +224,7 @@ class RutinasYTriggersTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Una tarea con historial de auditoría no se puede borrar (23503)")
     void auditoria_tareaConHistorial_noSePuedeBorrar_fk_23503() {
 
         Tarea t = insertar(3, 5);
@@ -223,6 +235,38 @@ class RutinasYTriggersTest extends PostgresTestBase {
 
         assertTrue(ex instanceof DataIntegrityViolationException);
         assertEquals("23503", sqlState(ex));
+
+    }
+
+    // ---------- constraints de tareas por SQL directo ----------
+
+    @Test
+    @DisplayName("Insertar por SQL la prioridad 6 falla por llave foránea y no guarda (23503)")
+    void insertSql_prioridadSeis_fk_23503_yNoGuarda() {
+
+        // Act
+        Throwable ex = capturar(() -> jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite) " +
+                    "VALUES (gen_random_uuid(), 'Seis', ?, 6, LOCALTIMESTAMP + interval '1 day')", materiaId));
+
+        // Assert
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM tareas", Integer.class));
+
+    }
+
+    @Test
+    @DisplayName("Insertar por SQL un estado inexistente falla por llave foránea y no guarda (23503)")
+    void insertSql_estadoInexistente_fk_23503_yNoGuarda() {
+
+        // Act
+        Throwable ex = capturar(() -> jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, estado_id, fecha_limite) " +
+                    "VALUES (gen_random_uuid(), 'Raro', ?, 3, 99, LOCALTIMESTAMP + interval '1 day')", materiaId));
+
+        // Assert
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM tareas", Integer.class));
 
     }
 }
