@@ -19,9 +19,11 @@ CREATE TABLE profesores (
 CREATE TABLE materias (
     id          INTEGER      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre      VARCHAR(100) NOT NULL,
-    profesor_id INTEGER      NOT NULL REFERENCES profesores(id) ON DELETE RESTRICT,
-    CONSTRAINT uq_materias_nombre_profesor UNIQUE (nombre, profesor_id)
+    profesor_id INTEGER      NOT NULL REFERENCES profesores(id) ON DELETE RESTRICT
 );
+
+-- El nombre es único por profesor sin distinguir mayúsculas ("Cálculo" y "cálculo" son la misma materia)
+CREATE UNIQUE INDEX uq_materias_nombre_profesor ON materias (lower(nombre), profesor_id);
 
 CREATE TABLE tareas (
     id           UUID         PRIMARY KEY,

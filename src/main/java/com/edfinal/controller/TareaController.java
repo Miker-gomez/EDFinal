@@ -42,7 +42,7 @@ public class TareaController {
     @PutMapping("/{id}")
     public Tarea editar(@PathVariable String id, @Valid @RequestBody TareaRequest request) {
 
-        return tareaService.actualizarTarea(id, request.titulo(), request.materiaId(), request.prioridad(), request.fechaLimite());
+        return tareaService.actualizarTarea(id.toLowerCase(), request.titulo(), request.materiaId(), request.prioridad(), request.fechaLimite());
 
     }
 
@@ -66,7 +66,7 @@ public class TareaController {
     @GetMapping("/{id}")
     public Tarea buscar(@PathVariable String id) {
 
-        return tareaService.buscarPorId(id)
+        return tareaService.buscarPorId(id.toLowerCase())
                 .orElseThrow(() -> new TareaNoEncontradaException("Tarea no encontrada"));
 
     }
@@ -74,14 +74,14 @@ public class TareaController {
     @PutMapping("/{id}/completar")
     public Tarea completar(@PathVariable String id) {
 
-        return tareaService.completarTarea(id);
+        return tareaService.completarTarea(id.toLowerCase());
 
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable String id) {
 
-        tareaService.eliminarTarea(id);
+        tareaService.eliminarTarea(id.toLowerCase());
         return ResponseEntity.noContent().build();
 
     }

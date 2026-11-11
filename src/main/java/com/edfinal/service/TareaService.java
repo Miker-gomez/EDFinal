@@ -237,9 +237,26 @@ public class TareaService {
             AccionDeshacer accion = pilaDeshacer.peek();
             Tarea previa = accion.tareaPrevia();
 
-            tareaRepository.actualizarEstado(previa.id(), previa.estado());
+            // Si la fila ya no existe se descarta la acción para no bloquear los deshacer siguientes
+            if (!tareaRepository.actualizarEstado(previa.id(), previa.estado())) {
+
+                pilaDeshacer.pop();
+                log.warn("Acción {} descartada: la tarea {} ya no existe. Tamaño de la pila: {}",
+                        accion.tipo(), previa.id(), pilaDeshacer.size());
+                throw new TareaNoEncontradaException("La tarea de la última acción ya no existe; se descartó");
+
+            }
+
             Tarea restaurada = tareaRepository.buscarPorId(previa.id())
                     .orElseThrow(() -> new TareaNoEncontradaException("Tarea no encontrada"));
+
+            // Una tarea que se restaura con el plazo ya cumplido vuelve como VENCIDA
+            if (restaurada.estado() == EstadoTarea.PENDIENTE && restaurada.fechaLimite().isBefore(LocalDateTime.now())) {
+
+                tareaRepository.actualizarEstado(restaurada.id(), EstadoTarea.VENCIDA);
+                restaurada = restaurada.conEstado(EstadoTarea.VENCIDA);
+
+            }
             pilaDeshacer.pop();
 
             heap.remove(restaurada.id());
@@ -318,13 +335,17 @@ public class TareaService {
             }
 
             // Primero la base de datos; si falla, el heap y el mapa quedan intactos
-            tareaRepository.actualizarEstado(id, EstadoTarea.COMPLETADA);
+            EstadoTarea estadoFinal = EstadoTarea.COMPLETADA;
+            if (tipo == AccionDeshacer.TipoAccion.ELIMINAR) {
+                estadoFinal = EstadoTarea.ELIMINADA;
+            }
+            tareaRepository.actualizarEstado(id, estadoFinal);
             heap.remove(id);
             mapaActivas.remove(id);
             pilaDeshacer.push(new AccionDeshacer(tipo, actual));
             log.info("Tarea {} retirada del MaxHeap por {} y apilada en deshacer. Tamaño del heap: {}. Tamaño de la pila: {}",
                     id, tipo, heap.size(), pilaDeshacer.size());
-            return actual.conEstado(EstadoTarea.COMPLETADA);
+            return actual.conEstado(estadoFinal);
 
         } finally {
             lock.writeLock().unlock();

@@ -194,7 +194,7 @@ function pintarEstadisticas(estadisticas) {
   if (estadisticas.length === 0) {
     const fila = crear('tr');
     const celda = crear('td', 'Sin datos', 'text-muted');
-    celda.colSpan = 5;
+    celda.colSpan = 6;
     fila.appendChild(celda);
     cuerpo.appendChild(fila);
     return;
@@ -207,6 +207,7 @@ function pintarEstadisticas(estadisticas) {
     fila.appendChild(crear('td', estadistica.pendientes));
     fila.appendChild(crear('td', estadistica.completadas));
     fila.appendChild(crear('td', estadistica.vencidas));
+    fila.appendChild(crear('td', estadistica.eliminadas));
     cuerpo.appendChild(fila);
   });
 

@@ -37,7 +37,8 @@ public class TareaRepository {
             rs.getLong("total"),
             rs.getLong("pendientes"),
             rs.getLong("completadas"),
-            rs.getLong("vencidas")
+            rs.getLong("vencidas"),
+            rs.getLong("eliminadas")
     );
 
     private final JdbcTemplate jdbc;
@@ -106,7 +107,7 @@ public class TareaRepository {
 
     public List<EstadisticaMateria> estadisticasPorMateria() {
 
-        return jdbc.query("SELECT materia_id, materia, total, pendientes, completadas, vencidas " +
+        return jdbc.query("SELECT materia_id, materia, total, pendientes, completadas, vencidas, eliminadas " +
                     "FROM sp_estadisticas_entrega()", STATS_MAPPER);
 
     }

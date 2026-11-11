@@ -16,7 +16,7 @@ BEGIN
 END;
 $$;
 
--- SP 2: consolida por materia el total y el conteo por estado.
+-- SP 2: consolida por materia el total (sin eliminadas) y el conteo por estado.
 -- Incluye materias sin tareas (con ceros).
 CREATE OR REPLACE FUNCTION sp_estadisticas_entrega()
 RETURNS TABLE (
@@ -25,7 +25,8 @@ RETURNS TABLE (
     total       BIGINT,
     pendientes  BIGINT,
     completadas BIGINT,
-    vencidas    BIGINT
+    vencidas    BIGINT,
+    eliminadas  BIGINT
 )
 LANGUAGE plpgsql
 STABLE
@@ -34,10 +35,11 @@ BEGIN
     RETURN QUERY
     SELECT m.id,
            m.nombre,
-           COUNT(t.id),
+           COUNT(t.id) FILTER (WHERE e.nombre <> 'ELIMINADA'),
            COUNT(t.id) FILTER (WHERE e.nombre = 'PENDIENTE'),
            COUNT(t.id) FILTER (WHERE e.nombre = 'COMPLETADA'),
-           COUNT(t.id) FILTER (WHERE e.nombre = 'VENCIDA')
+           COUNT(t.id) FILTER (WHERE e.nombre = 'VENCIDA'),
+           COUNT(t.id) FILTER (WHERE e.nombre = 'ELIMINADA')
       FROM materias m
       LEFT JOIN tareas t ON t.materia_id = m.id
       LEFT JOIN estado e ON e.id = t.estado_id

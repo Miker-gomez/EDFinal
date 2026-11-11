@@ -3,5 +3,6 @@ package com.edfinal.domain;
 public enum EstadoTarea {
     PENDIENTE,
     COMPLETADA,
-    VENCIDA
+    VENCIDA,
+    ELIMINADA
 }

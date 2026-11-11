@@ -229,7 +229,7 @@ class TareaServiceTest extends PostgresTestBase {
 
         // Assert
         assertTrue(service.buscarPorId(t1.id()).isEmpty());
-        assertEquals(EstadoTarea.COMPLETADA, tareaRepository.buscarPorId(t1.id()).get().estado());
+        assertEquals(EstadoTarea.ELIMINADA, tareaRepository.buscarPorId(t1.id()).get().estado());
         assertEquals(1, service.tamanoPilaDeshacer());
 
         // Act
@@ -238,6 +238,69 @@ class TareaServiceTest extends PostgresTestBase {
         // Assert
         assertEquals(t1, restaurada);
         assertEquals(t1, service.obtenerMasUrgente().get());
+
+    }
+
+    @Test
+    @DisplayName("deshacer descarta la acción cuya fila ya no existe y no bloquea las siguientes")
+    void deshacer_accionHuerfana_noBloqueaLasSiguientes() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 3, enDias(2));
+        Tarea t2 = service.crearTarea("Parcial", materiaId, 4, enDias(3));
+        service.completarTarea(t1.id());
+        service.completarTarea(t2.id());
+        jdbc.update("DELETE FROM auditoria_tareas WHERE tarea_id = ?::uuid", t2.id());
+        jdbc.update("DELETE FROM tareas WHERE id = ?::uuid", t2.id());
+
+        // Act
+        Throwable ex = capturar(() -> service.deshacer());
+        Tarea restaurada = service.deshacer();
+
+        // Assert
+        assertTrue(ex instanceof TareaNoEncontradaException);
+        assertEquals(t1, restaurada);
+        assertEquals(0, service.tamanoPilaDeshacer());
+
+    }
+
+    @Test
+    @DisplayName("deshacer deja VENCIDA la tarea restaurada cuyo plazo ya pasó")
+    void deshacer_plazoCumplido_restauraVencida() {
+
+        // Arrange
+        Tarea t1 = service.crearTarea("Taller", materiaId, 3, enDias(2));
+        service.completarTarea(t1.id());
+        jdbc.update("UPDATE tareas SET fecha_limite = ? WHERE id = ?::uuid", LocalDateTime.now().minusDays(1), t1.id());
+
+        // Act
+        Tarea restaurada = service.deshacer();
+
+        // Assert
+        assertEquals(EstadoTarea.VENCIDA, restaurada.estado());
+        assertEquals(EstadoTarea.VENCIDA, tareaRepository.buscarPorId(t1.id()).get().estado());
+        assertEquals(EstadoTarea.VENCIDA, service.buscarPorId(t1.id()).get().estado());
+
+    }
+
+    @Test
+    @DisplayName("con prioridad y fecha iguales la más urgente coincide con la primera de la lista")
+    void empateTotal_urgenteCoincideConPrimeraDeLaLista() {
+
+        // Arrange
+        LocalDateTime fecha = enDias(3);
+        for (int i = 0; i < 6; i++) {
+
+            service.crearTarea("Tarea " + i, materiaId, 3, fecha);
+
+        }
+
+        // Act
+        Tarea primera = service.listarActivas().get(0);
+        Tarea urgente = service.obtenerMasUrgente().get();
+
+        // Assert
+        assertEquals(primera, urgente);
 
     }
 

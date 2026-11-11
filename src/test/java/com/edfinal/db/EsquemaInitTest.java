@@ -64,7 +64,7 @@ class EsquemaInitTest extends PostgresTestBase {
     void catalogoEstados_idsDelContrato() {
 
         List<String> estados = jdbc.queryForList("SELECT nombre FROM estado ORDER BY id", String.class);
-        assertEquals(List.of("PENDIENTE", "COMPLETADA", "VENCIDA"), estados);
+        assertEquals(List.of("PENDIENTE", "COMPLETADA", "VENCIDA", "ELIMINADA"), estados);
 
     }
 
