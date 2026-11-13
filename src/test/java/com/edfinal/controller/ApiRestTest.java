@@ -469,6 +469,27 @@ class ApiRestTest extends PostgresTestBase {
 
         // Assert
         assertEquals(409, respuesta.getStatus());
+        assertEquals("No se puede eliminar la materia: tiene tareas pendientes, vencidas o completadas",
+                mapper.readTree(respuesta.getContentAsString()).get("mensaje").asText());
+
+    }
+
+    @Test
+    @DisplayName("Materias: eliminar una materia cuyas tareas están todas ELIMINADAS responde 204")
+    void eliminarMateria_soloTareasEliminadas_204() throws Exception {
+
+        // Arrange
+        String id = crearTarea("Taller", 3, 5);
+        enviar("DELETE", "/api/tareas/" + id, null);
+
+        // Act
+        MockHttpServletResponse respuesta = enviar("DELETE", "/api/materias/" + materiaId, null);
+        MockHttpServletResponse consulta = enviar("GET", "/api/materias/" + materiaId, null);
+
+        // Assert
+        assertEquals(204, respuesta.getStatus());
+        assertEquals(404, consulta.getStatus());
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM tareas WHERE id = ?::uuid", Integer.class, id));
 
     }
 

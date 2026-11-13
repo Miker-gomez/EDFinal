@@ -66,10 +66,21 @@ public class MateriaRepository {
 
     }
 
+    // Borra la materia junto con sus tareas ELIMINADAS y la auditoría de esas tareas en una sola sentencia
+    // Si quedan tareas en otro estado la llave foránea rechaza todo (23503) y no se borra nada
     // Devuelve true si se eliminó una fila; false si el id no existe
     public boolean eliminar(int id) {
 
-        return jdbc.update("DELETE FROM materias WHERE id = ?", id) == 1;
+        return jdbc.update("WITH eliminadas AS ( " +
+                    "SELECT t.id FROM tareas t " +
+                    "JOIN estado e ON e.id = t.estado_id " +
+                    "WHERE t.materia_id = ? AND e.nombre = 'ELIMINADA' " +
+                    "), auditoria AS ( " +
+                    "DELETE FROM auditoria_tareas WHERE tarea_id IN (SELECT id FROM eliminadas) " +
+                    "), borradas AS ( " +
+                    "DELETE FROM tareas WHERE id IN (SELECT id FROM eliminadas) " +
+                    ") " +
+                    "DELETE FROM materias WHERE id = ?", id, id) == 1;
 
     }
 }

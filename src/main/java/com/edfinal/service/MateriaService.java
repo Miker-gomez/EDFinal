@@ -1,10 +1,12 @@
 package com.edfinal.service;
 
 import com.edfinal.domain.Materia;
+import com.edfinal.exception.MateriaConTareasException;
 import com.edfinal.exception.MateriaNoEncontradaException;
 import com.edfinal.exception.ProfesorNoEncontradoException;
 import com.edfinal.repository.MateriaRepository;
 import com.edfinal.repository.ProfesorRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -59,10 +61,19 @@ public class MateriaService {
 
     }
 
-    // Una materia con tareas asociadas la rechaza la llave foránea (23503)
+    // Las tareas ELIMINADAS se borran con la materia; si quedan otras la llave foránea la rechaza (23503)
     public void eliminar(int id) {
 
-        if (!materiaRepository.eliminar(id)) {
+        boolean eliminada;
+        try {
+
+            eliminada = materiaRepository.eliminar(id);
+
+        }
+        catch (DataIntegrityViolationException ex) {
+            throw new MateriaConTareasException("No se puede eliminar la materia: tiene tareas pendientes, vencidas o completadas");
+        }
+        if (!eliminada) {
             throw new MateriaNoEncontradaException("Materia no encontrada");
         }
 
