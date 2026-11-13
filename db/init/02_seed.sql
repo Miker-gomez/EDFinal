@@ -3,7 +3,8 @@
 INSERT INTO estado (id, nombre) VALUES
     (1, 'PENDIENTE'),
     (2, 'COMPLETADA'),
-    (3, 'VENCIDA');
+    (3, 'VENCIDA'),
+    (4, 'ELIMINADA');
 
 INSERT INTO tipos_prioridad (id, nombre) VALUES
     (1, 'Muy baja'),

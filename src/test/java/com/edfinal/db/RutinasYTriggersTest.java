@@ -143,9 +143,12 @@ class RutinasYTriggersTest extends PostgresTestBase {
         Tarea vencida = insertar(3, 8);
         repo.actualizarEstado(completada.id(), EstadoTarea.COMPLETADA);
         repo.actualizarEstado(vencida.id(), EstadoTarea.VENCIDA);
+        Tarea eliminada = insertar(3, 9);
+        repo.actualizarEstado(eliminada.id(), EstadoTarea.ELIMINADA);
 
-        assertEquals(List.of(new EstadisticaMateria(vacia, "Algebra", 0, 0, 0, 0),
-                new EstadisticaMateria(materiaId, "EDA", 4, 2, 1, 1)), repo.estadisticasPorMateria());
+        // El total no incluye las eliminadas
+        assertEquals(List.of(new EstadisticaMateria(vacia, "Algebra", 0, 0, 0, 0, 0),
+                new EstadisticaMateria(materiaId, "EDA", 4, 2, 1, 1, 1)), repo.estadisticasPorMateria());
 
     }
 

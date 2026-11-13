@@ -276,16 +276,130 @@ class ApiRestTest extends PostgresTestBase {
         // Arrange
         crearTarea("Taller", 3, 5);
         String id = crearTarea("Parcial", 4, 5);
+        String idEliminada = crearTarea("Borrador", 2, 5);
         enviar("PUT", "/api/tareas/" + id + "/completar", null);
+        enviar("DELETE", "/api/tareas/" + idEliminada, null);
 
         // Act
         MockHttpServletResponse respuesta = enviar("GET", "/api/estadisticas", null);
 
         // Assert
         assertEquals(200, respuesta.getStatus());
+        assertEquals(1, mapper.readTree(respuesta.getContentAsString()).get(0).get("eliminadas").asInt());
         assertEquals(2, mapper.readTree(respuesta.getContentAsString()).get(0).get("total").asInt());
         assertEquals(1, mapper.readTree(respuesta.getContentAsString()).get(0).get("pendientes").asInt());
         assertEquals(1, mapper.readTree(respuesta.getContentAsString()).get(0).get("completadas").asInt());
+
+    }
+
+    @Test
+    @DisplayName("Con prioridad y fecha iguales, GET /api/tareas/critica coincide con la primera fila de GET /api/tareas")
+    void empateTotal_criticaCoincideConLaLista() throws Exception {
+
+        // Arrange
+        for (int i = 0; i < 6; i++) {
+
+            enviar("POST", "/api/tareas", cuerpoTarea("T" + i, materiaId, 3, 3));
+
+        }
+
+        // Act
+        MockHttpServletResponse critica = enviar("GET", "/api/tareas/critica", null);
+        MockHttpServletResponse lista = enviar("GET", "/api/tareas", null);
+
+        // Assert
+        assertEquals(mapper.readTree(lista.getContentAsString()).get(0).get("id").asText(),
+                mapper.readTree(critica.getContentAsString()).get("id").asText());
+
+    }
+
+    @Test
+    @DisplayName("La fecha con zona (Z u offset) se rechaza con 400 y la fecha local se acepta")
+    void fechaConZona_400() throws Exception {
+
+        // Arrange
+        String prefijo = "{\"titulo\":\"Z\",\"materiaId\":" + materiaId + ",\"prioridad\":3,\"fechaLimite\":\"" + fecha(3);
+
+        // Act
+        MockHttpServletResponse conZ = enviar("POST", "/api/tareas", prefijo + "Z\"}");
+        MockHttpServletResponse conOffset = enviar("POST", "/api/tareas", prefijo + "-05:00\"}");
+        MockHttpServletResponse local = enviar("POST", "/api/tareas", cuerpoTarea("Local", materiaId, 3, 3));
+
+        // Assert
+        assertEquals(400, conZ.getStatus());
+        assertEquals(400, conOffset.getStatus());
+        assertEquals(201, local.getStatus());
+        assertEquals(1, tareaService.listarActivas().size());
+
+    }
+
+    @Test
+    @DisplayName("El cuerpo estricto rechaza prioridad decimal o en texto y campos desconocidos")
+    void cuerpoEstricto_400() throws Exception {
+
+        // Arrange
+        String base = ",\"materiaId\":" + materiaId + ",\"fechaLimite\":\"" + fecha(3) + "\"";
+
+        // Act
+        MockHttpServletResponse decimal = enviar("POST", "/api/tareas", "{\"titulo\":\"D\",\"prioridad\":1.5" + base + "}");
+        MockHttpServletResponse texto = enviar("POST", "/api/tareas", "{\"titulo\":\"T\",\"prioridad\":\"3\"" + base + "}");
+        MockHttpServletResponse extra = enviar("POST", "/api/tareas", "{\"titulo\":\"E\",\"prioridad\":3,\"admin\":true" + base + "}");
+
+        // Assert
+        assertEquals(400, decimal.getStatus());
+        assertEquals(400, texto.getStatus());
+        assertEquals(400, extra.getStatus());
+        assertTrue(tareaService.listarActivas().isEmpty());
+
+    }
+
+    @Test
+    @DisplayName("Las respuestas llevan las cabeceras de seguridad")
+    void cabecerasDeSeguridad() throws Exception {
+
+        // Arrange
+        crearTarea("Taller", 3, 5);
+
+        // Act
+        MockHttpServletResponse respuesta = enviar("GET", "/api/tareas", null);
+
+        // Assert
+        assertEquals("nosniff", respuesta.getHeader("X-Content-Type-Options"));
+        assertEquals("DENY", respuesta.getHeader("X-Frame-Options"));
+        assertTrue(respuesta.getHeader("Content-Security-Policy").contains("default-src 'self'"));
+
+    }
+
+    @Test
+    @DisplayName("El id de la tarea se acepta en mayúsculas")
+    void idEnMayusculas_seAcepta() throws Exception {
+
+        // Arrange
+        String id = crearTarea("Taller", 3, 5);
+
+        // Act
+        MockHttpServletResponse consultada = enviar("GET", "/api/tareas/" + id.toUpperCase(), null);
+        MockHttpServletResponse completada = enviar("PUT", "/api/tareas/" + id.toUpperCase() + "/completar", null);
+
+        // Assert
+        assertEquals(200, consultada.getStatus());
+        assertEquals(200, completada.getStatus());
+
+    }
+
+    @Test
+    @DisplayName("Una materia repetida con otras mayúsculas para el mismo profesor responde 409")
+    void materiaDuplicadaSinDistinguirMayusculas_409() throws Exception {
+
+        // Arrange
+        int profesorId = crearProfesor("duplicada@test.com");
+        enviar("POST", "/api/materias", cuerpoMateria("Cálculo", profesorId));
+
+        // Act
+        MockHttpServletResponse repetida = enviar("POST", "/api/materias", cuerpoMateria("cálculo", profesorId));
+
+        // Assert
+        assertEquals(409, repetida.getStatus());
 
     }
 

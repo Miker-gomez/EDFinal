@@ -22,7 +22,7 @@ PostgreSQL es la fuente de verdad. Las tareas activas (PENDIENTE y VENCIDA) tamb
 
 - **Max-Heap propio** (`MaxHeap`): tarea más urgente en O(1); insertar y remover en O(log n).
 - **HashMap**: búsqueda por ID en O(1).
-- **Pila (`Stack`)**: deshacer la última acción de completar o eliminar en O(1).
+- **Pila (`Stack`)**: deshacer la última acción de completar o eliminar en O(1). Una tarea eliminada queda en estado `ELIMINADA` y no cuenta como completada ni en el total de las estadísticas; si su fila ya no existe, la acción se descarta y el siguiente deshacer continúa; una tarea restaurada con el plazo cumplido vuelve como `VENCIDA`.
 
 ## Estructura del repositorio
 
@@ -113,3 +113,6 @@ El avance del proyecto se gestiona de forma modular por fases:
 - **Fase 4 – API REST y Controladores (Completada):** Endpoints REST (`TareaController`, `MateriaController`, `ProfesorController`, `EstadisticaController`), DTOs con Bean Validation y manejo global de errores (`ManejadorErrores`).
 - **Fase 5 – Frontend Dashboard (Completada):** Interfaz HTML5/Bootstrap con consumo de la API mediante Fetch API.
 - **Fase 6 – Calidad, integración y sustentación (Completada):** matriz de verificación, arranque desde cero con Docker Compose, persistencia tras reinicio y revisión final.
+
+## Formato de fechas y entrada JSON
+La fecha límite se envía en hora local sin zona (`2026-12-20T10:00:00`); con `Z` u offset la API responde 400. La entrada es estricta: prioridad decimal o en texto y campos desconocidos también dan 400. Con prioridad y fecha iguales, el desempate es por id, de modo que la tarea crítica es siempre la primera de la lista.

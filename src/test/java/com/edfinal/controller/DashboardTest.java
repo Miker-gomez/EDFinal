@@ -14,6 +14,8 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +30,7 @@ class DashboardTest extends PostgresTestBase {
             "id=\"listaTareas\"", "id=\"formBuscar\"", "id=\"buscarId\"", "id=\"btnDeshacer\"",
             "id=\"btnVencidas\"", "id=\"formMateria\"", "id=\"listaMaterias\"", "id=\"formProfesor\"",
             "id=\"listaProfesores\"", "id=\"listaEstadisticas\"", "id=\"modalEditar\"", "id=\"formEditar\"",
-            "id=\"alertas\""
+            "id=\"alertas\"", "id=\"tablaTareas\""
     };
 
     private final MockMvc mockMvc;
@@ -103,6 +105,40 @@ class DashboardTest extends PostgresTestBase {
         assertTrue(html.contains("/css/estilos.css"));
         assertTrue(html.contains("/js/api.js"));
         assertTrue(html.contains("/js/app.js"));
+
+    }
+
+    @Test
+    @DisplayName("El dashboard declara un favicon vacío para no pedir /favicon.ico")
+    void paginaPrincipalDeclaraFavicon() throws Exception {
+
+        // Arrange
+        String ruta = "/index.html";
+
+        // Act
+        String html = pedir(ruta).getContentAsString();
+
+        // Assert
+        assertTrue(html.contains("<link rel=\"icon\" href=\"data:,\">"));
+
+    }
+
+    @Test
+    @DisplayName("En pantallas angostas la hoja de estilos oculta la columna de la materia")
+    void paginaPrincipalOcultaLaMateriaEnPantallasAngostas() throws Exception {
+
+        // Arrange
+        String ruta = "/index.html";
+
+        // Act
+        String html = pedir(ruta).getContentAsString(StandardCharsets.UTF_8);
+        String css = pedir("/css/estilos.css").getContentAsString();
+        String script = pedir("/js/app.js").getContentAsString();
+
+        // Assert
+        assertTrue(html.contains("<th class=\"columna-materia\">Materia</th>"));
+        assertTrue(script.contains("crear('td', tarea.materia, 'columna-materia')"));
+        assertTrue(css.contains("@media (max-width: 575.98px) {\n  #tablaTareas .columna-materia {\n    display: none;"));
 
     }
 

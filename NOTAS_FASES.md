@@ -11,7 +11,7 @@
 ### 1. ¿Qué se agregó en esta fase?
 
 1. **`AccionDeshacer` (`com.edfinal.service`):**
-   - Record inmutable que almacena el tipo de acción (`COMPLETAR`, `MODIFICAR`) y la instantánea previa (`Tarea tareaPrevia`) antes de la mutación.
+   - Record inmutable que almacena el tipo de acción (`COMPLETAR`, `ELIMINAR`) y la instantánea previa (`Tarea tareaPrevia`) antes de la mutación.
    - Es el elemento que alimenta la pila `Stack` para permitir reversiones atómicas.
 
 2. **`TareaService` (`com.edfinal.service`):**

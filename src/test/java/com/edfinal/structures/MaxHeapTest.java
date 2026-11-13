@@ -255,4 +255,26 @@ class MaxHeapTest {
 
     }
 
+    @Test
+    @DisplayName("tareas: con prioridad y fecha iguales el desempate es por id")
+    void tareas_empateTotal_desempataPorId() {
+
+        // Arrange
+        MaxHeap<Tarea> heap = new MaxHeap<>();
+        heap.insert(tarea("b", 3, "2026-12-01T09:00"));
+        heap.insert(tarea("c", 3, "2026-12-01T09:00"));
+        heap.insert(tarea("a", 3, "2026-12-01T09:00"));
+
+        // Act
+        String primero = heap.extractMax().id();
+        String segundo = heap.extractMax().id();
+        String tercero = heap.extractMax().id();
+
+        // Assert
+        assertEquals("a", primero);
+        assertEquals("b", segundo);
+        assertEquals("c", tercero);
+
+    }
+
 }

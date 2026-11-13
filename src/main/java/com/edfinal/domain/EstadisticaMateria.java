@@ -7,6 +7,7 @@ public record EstadisticaMateria(
         long total,
         long pendientes,
         long completadas,
-        long vencidas
+        long vencidas,
+        long eliminadas
 ) {
 }

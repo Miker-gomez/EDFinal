@@ -28,7 +28,13 @@ public record Tarea(
         }
 
         // La fecha más cercana es más urgente, por eso se compara al revés
-        return otra.fechaLimite.compareTo(this.fechaLimite);
+        resultado = otra.fechaLimite.compareTo(this.fechaLimite);
+        if (resultado != 0) {
+            return resultado;
+        }
+
+        // Desempate final por id para que el orden sea total y el heap coincida con la lista
+        return otra.id.compareTo(this.id);
 
     }
 
