@@ -1,6 +1,7 @@
 package com.edfinal.controller;
 
 import com.edfinal.dto.ErrorResponse;
+import com.edfinal.exception.MateriaConTareasException;
 import com.edfinal.exception.MateriaNoEncontradaException;
 import com.edfinal.exception.NadaQueDeshacerException;
 import com.edfinal.exception.ProfesorNoEncontradoException;
@@ -85,8 +86,8 @@ public class ManejadorErrores {
 
     }
 
-    @ExceptionHandler(NadaQueDeshacerException.class)
-    public ResponseEntity<ErrorResponse> alNoHaberNadaQueDeshacer(NadaQueDeshacerException ex) {
+    @ExceptionHandler({NadaQueDeshacerException.class, MateriaConTareasException.class})
+    public ResponseEntity<ErrorResponse> alHaberConflicto(RuntimeException ex) {
 
         return responder(HttpStatus.CONFLICT, ex.getMessage());
 

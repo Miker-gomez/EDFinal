@@ -1,3 +1,10 @@
+/* Los avisos quedan fijos arriba para que se vean aunque la acción esté más abajo en la página */
+#alertas {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
 /* Distintivo de las tareas vencidas */
 .fila-vencida {
   background-color: #f8d7da;

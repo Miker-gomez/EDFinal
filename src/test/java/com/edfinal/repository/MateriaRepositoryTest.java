@@ -191,6 +191,50 @@ class MateriaRepositoryTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("Eliminar una materia con solo tareas ELIMINADAS borra la materia, esas tareas y su auditoría")
+    void eliminar_soloTareasEliminadas_borraTodo() {
+
+        // Arrange
+        int materiaId = crearMateria("EDA");
+        jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite) " +
+                    "VALUES (gen_random_uuid(), 'T', ?, 3, LOCALTIMESTAMP + interval '1 day')", materiaId);
+        jdbc.update("UPDATE tareas SET estado_id = 4 WHERE materia_id = ?", materiaId);
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM auditoria_tareas", Integer.class));
+
+        // Act
+        boolean eliminada = repo.eliminar(materiaId);
+
+        // Assert
+        assertTrue(eliminada);
+        assertTrue(repo.buscarPorId(materiaId).isEmpty());
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM tareas WHERE materia_id = ?", Integer.class, materiaId));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM auditoria_tareas", Integer.class));
+
+    }
+
+    @Test
+    @DisplayName("Si la materia tiene una tarea activa además de las ELIMINADAS no se borra nada (23503)")
+    void eliminar_tareaActivaYEliminada_noBorraNada() {
+
+        // Arrange
+        int materiaId = crearMateria("EDA");
+        jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite, estado_id) " +
+                    "VALUES (gen_random_uuid(), 'Borrada', ?, 3, LOCALTIMESTAMP + interval '1 day', 4)", materiaId);
+        jdbc.update("INSERT INTO tareas (id, titulo, materia_id, prioridad_id, fecha_limite) " +
+                    "VALUES (gen_random_uuid(), 'Activa', ?, 3, LOCALTIMESTAMP + interval '1 day')", materiaId);
+
+        // Act
+        Throwable ex = capturar(() -> repo.eliminar(materiaId));
+
+        // Assert
+        assertTrue(ex instanceof DataIntegrityViolationException);
+        assertEquals("23503", sqlState(ex));
+        assertTrue(repo.buscarPorId(materiaId).isPresent());
+        assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM tareas WHERE materia_id = ?", Integer.class, materiaId));
+
+    }
+
+    @Test
     @DisplayName("Un profesor con materias no se puede borrar por RESTRICT (23503)")
     void profesorConMaterias_noSePuedeBorrar_restrict_23503() {
 
